@@ -1,3 +1,6 @@
+mod cli;
+use cli::run_command;
+
 fn main() {
-    println!("Hello, world!");
+    run_command()
 }
