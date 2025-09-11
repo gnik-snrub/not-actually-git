@@ -1,3 +1,4 @@
+pub mod commands;
 mod cli;
 use cli::run_command;
 
