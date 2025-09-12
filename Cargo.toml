@@ -1,5 +1,5 @@
 [package]
-name = "not_actually_git"
+name = "nag"
 version = "0.1.0"
 edition = "2024"
 
