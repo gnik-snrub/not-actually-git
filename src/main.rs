@@ -1,3 +1,5 @@
+pub mod tests;
+
 pub mod commands;
 pub mod io;
 mod cli;
