@@ -14,7 +14,6 @@ fn setup_repo() -> (TempDir, std::path::PathBuf) {
     (tmp, objects)
 }
 
-#[cfg(test)]
 #[test]
 fn writes_new_blob_once() {
     let (_tmp, objects) = setup_repo();
