@@ -6,13 +6,13 @@ pub fn find_repo_root() -> Result<std::path::PathBuf, String> {
         },
         Ok(mut curr) => {
             if curr.join(".nag").is_dir() {
-                return Ok(curr.join(".nag"))
+                return Ok(curr.to_path_buf())
             }
             while let Some(parent) = curr.parent() {
                 println!("{:?}", parent);
                 if parent.join(".nag").is_dir() {
                     println!("{:?}", parent.join(".nag"));
-                    return Ok(parent.join(".nag"))
+                    return Ok(parent.to_path_buf())
                 }
                 curr = parent.to_path_buf();
             }
