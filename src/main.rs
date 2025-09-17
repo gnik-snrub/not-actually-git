@@ -3,6 +3,7 @@ pub mod tests;
 pub mod commands;
 pub mod io;
 pub mod repo;
+pub mod tree;
 mod cli;
 use cli::run_command;
 
