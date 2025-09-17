@@ -1,22 +1,16 @@
-pub fn find_repo_root() -> Result<std::path::PathBuf, String> {
-    let cwd = std::env::current_dir();
-    match cwd {
-        Err(_) => {
-            return Err("Error: Could not find current directory".to_string())
-        },
-        Ok(mut curr) => {
-            if curr.join(".nag").is_dir() {
-                return Ok(curr.to_path_buf())
-            }
-            while let Some(parent) = curr.parent() {
-                println!("{:?}", parent);
-                if parent.join(".nag").is_dir() {
-                    println!("{:?}", parent.join(".nag"));
-                    return Ok(parent.to_path_buf())
-                }
-                curr = parent.to_path_buf();
-            }
-        }
+pub fn find_repo_root() -> std::io::Result<std::path::PathBuf> {
+    let mut cwd = std::env::current_dir()?;
+    if cwd.join(".nag").is_dir() {
+        return Ok(cwd.to_path_buf())
     }
-    return Err("Error: Could not find .nag project directory".to_string())
+    while let Some(parent) = cwd.parent() {
+        if parent.join(".nag").is_dir() {
+            return Ok(parent.to_path_buf())
+        }
+        cwd = parent.to_path_buf();
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "Not a NAG repository",
+    ))
 }
