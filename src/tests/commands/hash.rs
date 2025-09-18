@@ -4,7 +4,7 @@ use tempfile::TempDir;
 use rand::random;
 
 // Assuming you have these in your crate:
-use crate::io::write_file;
+use crate::core::io::write_file;
 use crate::commands::hash::hash;
 
 fn setup_repo() -> (TempDir, std::path::PathBuf) {

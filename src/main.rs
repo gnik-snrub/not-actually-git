@@ -1,9 +1,7 @@
 pub mod tests;
 
 pub mod commands;
-pub mod io;
-pub mod repo;
-pub mod tree;
+pub mod core;
 mod cli;
 use cli::run_command;
 

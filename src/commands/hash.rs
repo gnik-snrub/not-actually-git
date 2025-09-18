@@ -1,6 +1,6 @@
 use std::path::Path;
 use sha2::{Sha256, Digest};
-use crate::io::write_file;
+use crate::core::io::write_file;
 
 pub fn hash(file_bytes: &Vec<u8>) -> String {
     let mut hasher = Sha256::new();
