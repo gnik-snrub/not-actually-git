@@ -20,9 +20,11 @@ pub fn init(input_path: Option<String>) {
     let head_dir_path = canon_path.join("refs/heads");
     let main_bootstrap_path = head_dir_path.join("main");
     let head_file_path = canon_path.join("HEAD");
+    let index_path = canon_path.join("index");
 
     if obj_path.exists() && head_dir_path.exists() &&
-        main_bootstrap_path.exists() && head_file_path.exists() {
+        main_bootstrap_path.exists() && head_file_path.exists() &&
+        index_path.exists() {
             println!("Reinitialized existing NAG repository");
             return;
     }
@@ -32,4 +34,5 @@ pub fn init(input_path: Option<String>) {
     let _ = create_dir_all(&head_dir_path);
     let _ = write(main_bootstrap_path, b"");
     let _ = write(head_file_path, b"ref: refs/heads/main\n");
+    let _ = write(index_path, b"");
 }
