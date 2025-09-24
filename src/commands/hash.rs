@@ -9,7 +9,7 @@ pub fn hash(file_bytes: &Vec<u8>) -> String {
     let hex = format!("{:x}", result);
 
     let path = Path::new("./.nag/objects");
-    let canon_path = match path.canonicalize() {
+    match path.canonicalize() {
         Err(_e) => {
             println!("Error: creating blob file path");
             return hex;
