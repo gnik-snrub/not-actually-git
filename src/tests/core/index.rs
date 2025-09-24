@@ -41,8 +41,8 @@ fn read_index_not_found() {
     let index_path = nag_dir.join("index");
     assert!(!index_path.exists());
 
-    let err = read_index().unwrap_err();
-    assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
+    let index = read_index().unwrap();
+    assert!(index.is_empty(), "expected empty index when none exists");
 }
 
 #[test]

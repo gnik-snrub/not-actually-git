@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::core::repo::find_repo_root;
 use crate::core::io::write_file;
 
@@ -7,10 +5,7 @@ pub fn read_index() -> std::io::Result<Vec<(String, String)>> {
     let index = find_repo_root()?.join(".nag").join("index");
 
     if !index.exists() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Index not found",
-        ))
+        return Ok(Vec::new())
     }
 
     let mut entries = vec![];
@@ -34,7 +29,6 @@ pub fn write_index(entries: &[(String, String)]) -> std::io::Result<()> {
         buf.push_str(path);
         buf.push('\n');
     }
-
     write_file(&buf.as_bytes().to_vec(), &index)?;
 
     Ok(())
