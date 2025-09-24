@@ -76,7 +76,6 @@ fn concurrent_writes_race_safe() {
     for _ in 0..10 {
         let data = data.clone();
         let hash = hash.clone();
-        let objects = objects_arc.clone();
         handles.push(thread::spawn(move || {
             write_object(&data, &hash).unwrap();
         }));
