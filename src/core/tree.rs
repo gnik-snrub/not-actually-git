@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::os::unix::fs::PermissionsExt;
 use crate::commands::hash::hash;
 use crate::core::io::{ write_object, read_file };
-use crate::core::repo::find_repo_root;
 
 pub fn write_tree(root_path: &PathBuf) -> std::io::Result<String> {
     let mut string_buf = String::new();
