@@ -23,10 +23,6 @@ pub fn write_file(file: &Vec<u8>, path: &Path) -> std::io::Result<()>  {
         std::fs::create_dir_all(parent)?;
     }
 
-    if final_path.exists() {
-        return Ok(());
-    }
-
     let process = std::process::id().to_string();
     let random = random::<u64>().to_string();
 
@@ -55,6 +51,11 @@ pub fn write_file(file: &Vec<u8>, path: &Path) -> std::io::Result<()>  {
 
 pub fn write_object(data: &Vec<u8>, oid: &String) -> std::io::Result<()> {
     let obj_path = find_repo_root()?.join(".nag").join("objects").join(oid);
+    
+    if obj_path.exists() {
+        return Ok(());
+    }
+
     write_file(data, &obj_path)?;
 
     Ok(())
