@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
-use crate::commands::{init::init, hash::hash};
+use crate::commands::{init::init, hash::hash, add::add, status::status};
 use crate::core::io::read_file;
 use crate::core::repo::find_repo_root;
 use crate::core::tree::write_tree;
+
+use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(name = "Not Actually Git")]
@@ -19,12 +21,18 @@ enum Command {
     Hash {
         file_path: String
     },
+    Add {
+        path_str: String
+    },
+    Status {
+
+    },
     Test {
 
     }
 }
 
-pub fn run_command() {
+pub fn run_command() -> std::io::Result<()> {
     let tokens = Cli::parse();
     match tokens {
         Cli { command: Some(Command::Init { input_path })} => {
@@ -33,6 +41,13 @@ pub fn run_command() {
         Cli { command: Some(Command::Hash { file_path })} => {
             let file = read_file(&file_path);
             hash(&file);
+        },
+        Cli { command: Some(Command::Add { path_str })} => {
+            let path = Path::new(&path_str);
+            add(&path);
+        },
+        Cli { command: Some(Command::Status { })} => {
+            status();
         },
         Cli { command: Some(Command::Test { })} => {
             let found_repo = find_repo_root();

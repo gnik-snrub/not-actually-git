@@ -6,5 +6,5 @@ mod cli;
 use cli::run_command;
 
 fn main() {
-    run_command()
+    run_command().expect("run_command failed")
 }
