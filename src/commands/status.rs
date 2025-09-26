@@ -9,7 +9,7 @@ use std::fs::read_dir;
 use std::path::Path;
 use std::collections::{ HashSet, HashMap };
 
-pub fn status() -> std::io::Result<()> {
+pub fn status() -> std::io::Result<String> {
     let index = read_index()?;
     let mut working: Vec<(String, String)> = vec![];
     let root = find_repo_root()?;
@@ -47,38 +47,42 @@ pub fn status() -> std::io::Result<()> {
         }
     }
 
+    let mut buf_str = String::new();
+
     if untracked.len() > 0 {
-        println!("\nUntracked files");
+        buf_str.push_str("\nUntracked files\n");
         for path in untracked {
-            println!("\t{}", path);
+            buf_str.push_str(&format!("\t{}\n", path));
         }
     }
 
     if deleted.len() > 0 || modified.len() > 0 {
-        println!("\nChanges not staged for commit");
+        buf_str.push_str("\nChanges not staged for commit\n");
     }
 
     if deleted.len() > 0 {
-        println!("\nDeleted");
+        buf_str.push_str("\nDeleted\n");
         for path in deleted {
-            println!("\t{}", path);
+            buf_str.push_str(&format!("\t{}\n", path));
         }
     }
     if modified.len() > 0 {
-        println!("\nModified");
+        buf_str.push_str("\nModified\n");
         for path in modified {
-            println!("\t{}", path);
+            buf_str.push_str(&format!("\t{}\n", path));
         }
     }
 
     if staged.len() > 0{
-        println!("\nStaged changes");
+        buf_str.push_str("\nStaged changes\n");
         for path in staged {
-            println!("\t{}", path);
+            buf_str.push_str(&format!("\t{}\n", path));
         }
     }
 
-    Ok(())
+    println!("{buf_str}");
+
+    Ok(buf_str)
 }
 
 fn walk(path: &Path, working: &mut Vec<(String, String)>, root: &Path) -> std::io::Result<()> {
