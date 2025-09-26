@@ -47,25 +47,35 @@ pub fn status() -> std::io::Result<()> {
         }
     }
 
-    // Print output goes here
-    println!("Untracked files");
-    for path in untracked {
-        println!("{}", path);
+    if untracked.len() > 0 {
+        println!("\nUntracked files");
+        for path in untracked {
+            println!("\t{}", path);
+        }
     }
 
-    println!("Changes not staged for commit");
-    println!("Deleted");
-    for path in deleted {
-        println!("{}", path);
-    }
-    println!("Modified");
-    for path in modified {
-        println!("{}", path);
+    if deleted.len() > 0 || modified.len() > 0 {
+        println!("\nChanges not staged for commit");
     }
 
-    println!("Staged changes");
-    for path in staged {
-        println!("{}", path);
+    if deleted.len() > 0 {
+        println!("\nDeleted");
+        for path in deleted {
+            println!("\t{}", path);
+        }
+    }
+    if modified.len() > 0 {
+        println!("\nModified");
+        for path in modified {
+            println!("\t{}", path);
+        }
+    }
+
+    if staged.len() > 0{
+        println!("\nStaged changes");
+        for path in staged {
+            println!("\t{}", path);
+        }
     }
 
     Ok(())
