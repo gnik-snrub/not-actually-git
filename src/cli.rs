@@ -1,8 +1,7 @@
 use clap::{Parser, Subcommand};
-use crate::commands::{init::init, hash::hash, add::add, status::status};
+use crate::commands::{init::init, add::add, status::status, commit::commit};
 use crate::core::io::read_file;
-use crate::core::repo::find_repo_root;
-use crate::core::tree::write_tree;
+use crate::core::hash::hash;
 
 use std::path::Path;
 
@@ -27,6 +26,9 @@ enum Command {
     Status {
 
     },
+    Commit {
+        message: String,
+    },
     Test {
 
     }
@@ -44,23 +46,19 @@ pub fn run_command() -> std::io::Result<()> {
         },
         Cli { command: Some(Command::Add { path_str })} => {
             let path = Path::new(&path_str);
-            add(&path);
+            add(&path)?;
         },
         Cli { command: Some(Command::Status { })} => {
-            status();
+            status()?;
+        },
+        Cli { command: Some(Command::Commit { message })} => {
+            commit(message)?;
         },
         Cli { command: Some(Command::Test { })} => {
-            let found_repo = find_repo_root();
-            match found_repo {
-                Ok(root) => {
-                    let ass = write_tree(&root);
-                    println!("{}", ass.unwrap());
-                },
-                Err(e) => {
-                    println!("Error: {:?}", e);
-                }
-            }
+
         },
         Cli { command: None } => {}
     }
+
+    Ok(())
 }
