@@ -3,7 +3,7 @@ use std::fs::read_dir;
 
 use crate::core::io::{ read_file, write_object };
 use crate::core::index::{ read_index, write_index };
-use crate::commands::hash::hash;
+use crate::core::hash::hash;
 use crate::core::repo::find_repo_root;
 
 pub fn add(path: &Path) -> std::io::Result<()> {

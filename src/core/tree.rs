@@ -3,7 +3,7 @@ use std::fs::DirEntry;
 use std::path::{PathBuf, Path};
 use std::os::unix::fs::PermissionsExt;
 use std::collections::HashMap;
-use crate::commands::hash::hash;
+use crate::core::hash::hash;
 use crate::core::io::{ write_object, read_file };
 use crate::core::repo::find_repo_root;
 

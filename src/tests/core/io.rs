@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 use crate::core::io::{read_file, write_file, write_object};
-use crate::commands::hash::hash;
+use crate::core::hash::hash;
 use crate::tests::common::setup_nag_repo;
 
 #[test]

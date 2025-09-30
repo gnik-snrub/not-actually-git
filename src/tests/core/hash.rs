@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::thread;
 
 use crate::core::io::write_object;
-use crate::commands::hash::hash;
+use crate::core::hash::hash;
 use crate::tests::common::setup_nag_repo;
 
 #[test]

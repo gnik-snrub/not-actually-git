@@ -99,7 +99,7 @@ fn write_tree_empty_repo() {
 
 use crate::core::tree::write_tree_from_index;
 use crate::core::repo::find_repo_root;
-use crate::commands::hash::hash;
+use crate::core::hash::hash;
 use crate::core::io::write_object;
 
 #[test]

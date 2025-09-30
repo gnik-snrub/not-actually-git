@@ -3,7 +3,7 @@ use crate::core::{
     index::read_index,
     io::read_file,
 };
-use crate::commands::hash::hash;
+use crate::core::hash::hash;
 
 use std::fs::read_dir;
 use std::path::Path;
