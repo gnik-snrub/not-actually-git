@@ -1,4 +1,4 @@
-use crate::core::index::{ read_index, write_index };
+use crate::core::index::{ read_index };
 use crate::core::tree::write_tree_from_index;
 use crate::core::repo::find_repo_root;
 use crate::core::io::{ read_file, write_object, write_file };
@@ -35,7 +35,6 @@ pub fn commit(message: String) -> std::io::Result<()> {
     write_object(&buffer_bytes, &commit_hash)?;
 
     write_file(&commit_hash.into_bytes(), &branch_path)?;
-    write_index(&vec![])?;
 
     Ok(())
 }
