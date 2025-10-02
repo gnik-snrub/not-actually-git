@@ -138,3 +138,43 @@ pub fn write_tree_from_index(index: &Vec<(String, String)>) -> std::io::Result<S
     write_object(&buf_bytes, &tree_hash)?;
     Ok(tree_hash)
 }
+
+pub fn read_tree_to_index(tree_oid: &str) -> std::io::Result<Vec<(String, String)>> {
+    let mut entries = vec![];
+
+    read_t_to_i_walk(tree_oid, &mut entries)?;
+
+    Ok(entries)
+}
+
+fn read_t_to_i_walk(tree_oid: &str, entries: &mut Vec<(String, String)>) -> std::io::Result<()> {
+    let tree_str = find_repo_root()?.join(".nag").join("objects").join(tree_oid);
+    let tree_bytes = read_file(&tree_str.to_string_lossy());
+    let tree_str = String::from_utf8_lossy(&tree_bytes);
+
+    for line in tree_str.lines() {
+        let parts: Vec<&str> = line.split('\t').collect();
+
+        match parts[0] {
+            "100644" | "100755" => { // regular file / exec file
+                let path = parts[1].to_string();
+                let oid = parts[2].to_string();
+                entries.push((oid, path));
+            }
+            "040000" => { // directory
+                let dirname = parts[1];
+                let subtree_oid = parts[2];
+                let mut subtree_entries = vec![];
+                read_t_to_i_walk(subtree_oid, &mut subtree_entries)?;
+                for (oid, path) in subtree_entries {
+                    entries.push((oid, format!("{}/{}", dirname, path)));
+                }
+            }
+            _ => {
+                // optionally: return an error or just ignore unknown modes
+            }
+        }
+    }
+
+    Ok(())
+}
