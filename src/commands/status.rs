@@ -37,17 +37,22 @@ pub fn status() -> std::io::Result<String> {
     let branch_contents = read_file(&branch_path.to_string_lossy());
     let branch_oid = String::from_utf8_lossy(&branch_contents);
 
-    let commit_path = root.join(".nag").join("objects").join(format!("{}", branch_oid));
-    let commit_contents = read_file(&commit_path.to_string_lossy());
-    let commit_str = String::from_utf8_lossy(&commit_contents);
+    let head_index_map = if branch_oid.trim().is_empty() {
+        HashMap::new()
+    } else {
+        let commit_path = root.join(".nag").join("objects").join(format!("{}", branch_oid));
+        let commit_contents = read_file(&commit_path.to_string_lossy());
+        let commit_str = String::from_utf8_lossy(&commit_contents);
 
-    let tree_line = commit_str.lines().collect::<Vec<&str>>()[0];
-    let tree_oid = tree_line.split(" ").collect::<Vec<&str>>()[1];
-    let head_index = read_tree_to_index(&tree_oid)?;
+        let tree_line = commit_str.lines().collect::<Vec<&str>>()[0];
+        let tree_oid = tree_line.split(" ").collect::<Vec<&str>>()[1];
+        let head_index = read_tree_to_index(&tree_oid)?;
 
-    let head_index_map: HashMap<String, String> = head_index.into_iter()
-        .map(|(oid, p)| (p.clone(), oid.clone()))
-        .collect();
+        head_index.into_iter()
+            .map(|(oid, p)| (p.clone(), oid.clone()))
+            .collect()
+    };
+
 
     for working_entry in working { 
         let wrk_oid = working_entry.0;
