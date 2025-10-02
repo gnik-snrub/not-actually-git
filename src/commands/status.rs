@@ -20,6 +20,7 @@ pub fn status() -> std::io::Result<String> {
     let mut untracked = vec![];
     let mut modified = vec![];
     let mut staged = vec![];
+    let mut staged_delete = vec![];
     let mut deleted = vec![];
 
     let index_map: HashMap<String, String> = index.iter()
@@ -81,6 +82,12 @@ pub fn status() -> std::io::Result<String> {
         }
     }
 
+    for (head_path, _head_oid) in head_index_map.iter() {
+        if index_map.get(head_path).is_none() {
+            staged_delete.push(head_path.clone());
+        }
+    }
+
     let mut buf_str = String::new();
 
     if untracked.len() > 0 {
@@ -110,6 +117,13 @@ pub fn status() -> std::io::Result<String> {
     if staged.len() > 0{
         buf_str.push_str("\nStaged changes\n");
         for path in staged {
+            buf_str.push_str(&format!("\t{}\n", path));
+        }
+    }
+
+    if staged_delete.len() > 0{
+        buf_str.push_str("\nStaged deletions\n");
+        for path in staged_delete {
             buf_str.push_str(&format!("\t{}\n", path));
         }
     }
