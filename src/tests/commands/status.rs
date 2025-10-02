@@ -2,7 +2,7 @@ use tempfile::TempDir;
 use std::fs;
 use std::path::Path;
 
-use crate::commands::{add::add, status::status};
+use crate::commands::{add::add, commit::commit, status::status};
 
 fn init_repo(tmp: &TempDir) {
     let nag_root = tmp.path().join(".nag/objects");
@@ -13,6 +13,13 @@ fn init_repo(tmp: &TempDir) {
 fn write_file(path: &Path, contents: &str) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, contents).unwrap();
+}
+
+// helper: stage + commit file with message
+fn commit_helper(file_path: &Path, contents: &str, msg: &str) {
+    write_file(file_path, contents);
+    add(file_path).unwrap();
+    commit(msg.to_string()).unwrap();
 }
 
 #[test]
@@ -29,17 +36,17 @@ fn status_reports_untracked() {
 }
 
 #[test]
-fn status_reports_staged_clean() {
+fn status_reports_staged_before_commit() {
     let tmp = TempDir::new().unwrap();
     init_repo(&tmp);
 
-    let file_path = tmp.path().join("clean.txt");
-    write_file(&file_path, "stable");
+    let file_path = tmp.path().join("stage_me.txt");
+    write_file(&file_path, "first version");
     add(&file_path).unwrap();
 
     let out = status().unwrap();
     assert!(out.contains("Staged changes"));
-    assert!(out.contains("clean.txt"));
+    assert!(out.contains("stage_me.txt"));
 }
 
 #[test]
@@ -48,10 +55,9 @@ fn status_reports_modified() {
     init_repo(&tmp);
 
     let file_path = tmp.path().join("mod.txt");
-    write_file(&file_path, "v1");
-    add(&file_path).unwrap();
+    commit_helper(&file_path, "v1", "initial commit");
 
-    // modify the file after staging
+    // change after commit
     write_file(&file_path, "v2");
 
     let out = status().unwrap();
@@ -65,8 +71,7 @@ fn status_reports_deleted() {
     init_repo(&tmp);
 
     let file_path = tmp.path().join("gone.txt");
-    write_file(&file_path, "gone");
-    add(&file_path).unwrap();
+    commit_helper(&file_path, "present", "add gone.txt");
 
     fs::remove_file(&file_path).unwrap();
 
@@ -81,13 +86,12 @@ fn status_reports_clean_repo() {
     init_repo(&tmp);
 
     let file_path = tmp.path().join("clean_repo.txt");
-    write_file(&file_path, "nothing to see");
-    add(&file_path).unwrap();
+    commit_helper(&file_path, "content", "initial commit");
 
     let out = status().unwrap();
-    // A clean repo should not show untracked/modified/deleted sections
-    assert!(out.contains("Untracked files"));
+    assert!(out.contains("Staged changes"));
+    assert!(out.contains("clean_repo.txt"));
+    assert!(!out.contains("Untracked files"));
     assert!(!out.contains("Modified"));
     assert!(!out.contains("Deleted"));
-    assert!(out.contains("Staged changes")); // still lists staged files
 }
