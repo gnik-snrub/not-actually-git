@@ -14,6 +14,13 @@ pub fn add(path: &Path) -> std::io::Result<()> {
 }
 
 fn walk(path: &Path, entries: &mut Vec<(String, String)>) -> std::io::Result<()> {
+    if !path.exists() {
+        let repo_root = find_repo_root()?;
+        let rel_path = path.strip_prefix(&repo_root).unwrap_or(path);
+        let rel_str = rel_path.to_string_lossy().to_string();
+        entries.retain(|(_, p)| p != &rel_str);
+        return Ok(())
+    }
     if path.is_dir() {
         for child in read_dir(path)? {
             let dir = child.unwrap();
