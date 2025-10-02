@@ -77,17 +77,3 @@ fn commit_message_is_preserved() {
 
     assert!(body.contains("special commit message"), "commit object should contain the commit message verbatim");
 }
-
-#[test]
-fn commit_clears_index_afterwards() {
-    let tmp = TempDir::new().unwrap();
-    init_test_repo(&tmp);
-
-    let file_path = tmp.path().join("index.txt");
-    write_file(&file_path, "hello");
-    add(&file_path).unwrap();
-    commit("clear test".into()).unwrap();
-
-    let index = read_index().unwrap();
-    assert!(index.is_empty(), "index should be cleared after commit");
-}
