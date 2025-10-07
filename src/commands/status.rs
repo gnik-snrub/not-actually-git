@@ -10,7 +10,7 @@ use std::fs::read_dir;
 use std::path::Path;
 use std::collections::{ HashSet, HashMap };
 
-pub fn status() -> std::io::Result<String> {
+pub fn status(print: bool) -> std::io::Result<String> {
     let index = read_index()?;
     let mut working: Vec<(String, String)> = vec![];
     let root = find_repo_root()?;
@@ -128,7 +128,9 @@ pub fn status() -> std::io::Result<String> {
         }
     }
 
-    println!("{buf_str}");
+    if print {
+        println!("{buf_str}");
+    }
 
     Ok(buf_str)
 }

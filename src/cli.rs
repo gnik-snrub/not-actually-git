@@ -49,7 +49,7 @@ pub fn run_command() -> std::io::Result<()> {
             add(&path)?;
         },
         Cli { command: Some(Command::Status { })} => {
-            status()?;
+            status(true)?;
         },
         Cli { command: Some(Command::Commit { message })} => {
             commit(message)?;
