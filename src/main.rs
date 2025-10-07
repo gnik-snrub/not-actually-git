@@ -6,5 +6,8 @@ mod cli;
 use cli::run_command;
 
 fn main() {
-    run_command().expect("run_command failed")
+    if let Err(e) = run_command() {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
 }
