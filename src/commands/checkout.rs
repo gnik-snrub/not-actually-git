@@ -1,16 +1,23 @@
 use crate::commands::status::status;
 use crate::core::io::read_file;
 use crate::core::repo::find_repo_root;
+use crate::core::tree::read_tree_to_index;
+use crate::core::io::write_file;
+use crate::core::index::write_index;
+
+use std::fs::{ read_dir, remove_file, remove_dir_all, create_dir_all };
+use std::path::Path;
 
 pub fn checkout(branch: String) -> std::io::Result<()> {
     if status(false)?.len() > 0 {
         return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
+            std::io::ErrorKind::Other,
             format!("There are un-committed changes made. Please save your changes before checkout"),
         ));
     }
 
-    let nag_dir = find_repo_root()?.join(".nag");
+    let root = find_repo_root()?;
+    let nag_dir = root.join(".nag");
     let branch_path = nag_dir.join(format!("refs/heads/{}", branch));
     if !branch_path.exists() {
         return Err(std::io::Error::new(
@@ -40,8 +47,39 @@ pub fn checkout(branch: String) -> std::io::Result<()> {
             format!("Commit\'s tree '{}' not found", branch),
         ));
     }
-    let tree_contents = read_file(&tree_path.to_string_lossy());
-    let tree_str = String::from_utf8_lossy(&tree_contents);
+
+    for entry in read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if entry.file_name() == ".nag" {
+            continue;
+        }
+
+        if path.is_dir() {
+            remove_dir_all(&path)?;
+        } else {
+            remove_file(&path)?;
+        }
+    }
+
+    let index = read_tree_to_index(tree_oid)?;
+    for entry in &index {
+        let oid = entry.0.clone();
+        let path = Path::new(&entry.1);
+
+        if let Some(parent) = path.parent() { 
+            create_dir_all(parent)?;
+        }
+        let object_path = nag_dir.join("objects").join(oid);
+        let obj_contents = read_file(&object_path.to_string_lossy());
+        write_file(&obj_contents, &path)?;
+    }
+
+    write_index(&index)?;
+    let head_path = nag_dir.join("HEAD");
+    let new_head = format!("ref: refs/heads/{}", branch);
+    write_file(&new_head.as_bytes().to_vec(), &head_path)?;
 
     Ok(())
 }
