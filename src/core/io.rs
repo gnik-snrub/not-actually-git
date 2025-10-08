@@ -43,7 +43,13 @@ pub fn write_file(file: &Vec<u8>, path: &Path) -> std::io::Result<()>  {
     }
 
     if let Some(parent) = final_path.parent() {
-        let dir_file = File::open(parent)?;
+        let flush_dir = if parent == Path::new("") { // Guard for relative files at project root
+            let root = find_repo_root()?;
+            root
+        } else {
+            parent.to_path_buf()
+        };
+        let dir_file = File::open(flush_dir)?;
         dir_file.sync_all()?;
     }
     Ok(())
