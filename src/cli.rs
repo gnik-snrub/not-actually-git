@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use crate::commands::{init::init, add::add, status::status, commit::commit};
+use crate::commands::{init::init, add::add, status::status, commit::commit, checkout::checkout};
 use crate::core::io::read_file;
 use crate::core::hash::hash;
 
@@ -29,8 +29,11 @@ enum Command {
     Commit {
         message: String,
     },
+    Checkout {
+        branch: String,
+    },
     Test {
-
+        test: String
     }
 }
 
@@ -54,8 +57,10 @@ pub fn run_command() -> std::io::Result<()> {
         Cli { command: Some(Command::Commit { message })} => {
             commit(message)?;
         },
-        Cli { command: Some(Command::Test { })} => {
-
+        Cli { command: Some(Command::Checkout { branch })} => {
+            checkout(branch)?;
+        },
+        Cli { command: Some(Command::Test { test })} => {
         },
         Cli { command: None } => {}
     }
