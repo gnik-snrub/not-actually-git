@@ -30,7 +30,7 @@ fn status_reports_untracked() {
     let file_path = tmp.path().join("new.txt");
     write_file(&file_path, "hello");
 
-    let out = status().unwrap();
+    let out = status(false).unwrap();
     assert!(out.contains("Untracked files"));
     assert!(out.contains("new.txt"));
 }
@@ -44,7 +44,7 @@ fn status_reports_staged_before_commit() {
     write_file(&file_path, "first version");
     add(&file_path).unwrap();
 
-    let out = status().unwrap();
+    let out = status(false).unwrap();
     assert!(out.contains("Staged changes"));
     assert!(out.contains("stage_me.txt"));
 }
@@ -60,7 +60,7 @@ fn status_reports_modified() {
     // change after commit
     write_file(&file_path, "v2");
 
-    let out = status().unwrap();
+    let out = status(false).unwrap();
     assert!(out.contains("Modified"));
     assert!(out.contains("mod.txt"));
 }
@@ -75,7 +75,7 @@ fn status_reports_deleted() {
 
     fs::remove_file(&file_path).unwrap();
 
-    let out = status().unwrap();
+    let out = status(false).unwrap();
     assert!(out.contains("Deleted"));
     assert!(out.contains("gone.txt"));
 }
@@ -88,7 +88,7 @@ fn status_reports_clean_repo() {
     let file_path = tmp.path().join("clean_repo.txt");
     commit_helper(&file_path, "content", "initial commit");
 
-    let out = status().unwrap();
+    let out = status(false).unwrap();
     assert!(out.contains("Staged changes"));
     assert!(out.contains("clean_repo.txt"));
     assert!(!out.contains("Untracked files"));
