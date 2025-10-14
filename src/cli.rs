@@ -6,6 +6,7 @@ use crate::commands::{
     commit::commit,
     checkout::checkout,
     branch::branch,
+    restore::restore,
 };
 use crate::core::io::read_file;
 use crate::core::hash::hash;
@@ -42,6 +43,9 @@ enum Command {
     Branch {
         branch_name: String,
     },
+    Restore {
+        restore_path: String,
+    },
     Test {
     }
 }
@@ -71,6 +75,9 @@ pub fn run_command() -> std::io::Result<()> {
         },
         Cli { command: Some(Command::Branch { branch_name })} => {
             branch(branch_name)?;
+        },
+        Cli { command: Some(Command::Restore { restore_path })} => {
+            restore(restore_path)?;
         },
         Cli { command: Some(Command::Test { })} => {
         },
