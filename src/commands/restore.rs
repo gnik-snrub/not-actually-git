@@ -1,5 +1,5 @@
 use crate::core::repo::find_repo_root;
-use crate::core::io::read_file;
+use crate::core::io::{ read_file, write_file };
 use crate::core::tree::read_tree_to_index;
 
 use std::collections::HashMap;
@@ -32,11 +32,31 @@ pub fn restore(restore_path: String) -> std::io::Result<()> {
         })
         .collect();
 
-    println!("tree_map: {:?}", tree_map);
+    let mut restored_count = 0;
+    let objects_dir = nag_dir.join("objects");
+    println!("Restored:");
+    for (path, oid) in &tree_map {
+        if path == &restore_path || path.starts_with(&format!("{}/", restore_path)) {
+            let object_path = objects_dir.join(oid);
+            if !object_path.exists() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Missing blob object for {}", path),
+                ));
+            }
+            let object_contents = read_file(&object_path.to_string_lossy());
+            write_file(&object_contents, &root.join(path))?;
+            restored_count += 1;
+            println!("\t{}", path);
+        }
+    }
+
+    if restored_count == 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("No matches restored"),
+        ));
+    }
 
     Ok(())
-}
-
-fn walk(path: String) -> std::io::Result<()> {
-
 }
