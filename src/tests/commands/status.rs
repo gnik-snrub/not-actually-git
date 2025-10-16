@@ -5,9 +5,8 @@ use std::path::Path;
 use crate::commands::{add::add, commit::commit, status::status};
 
 fn init_repo(tmp: &TempDir) {
-    let nag_root = tmp.path().join(".nag/objects");
-    fs::create_dir_all(&nag_root).unwrap();
     std::env::set_current_dir(tmp.path()).unwrap();
+    crate::commands::init::init(Some(tmp.path().to_string_lossy().to_string()));
 }
 
 fn write_file(path: &Path, contents: &str) {
@@ -45,7 +44,8 @@ fn status_reports_staged_before_commit() {
     add(&file_path).unwrap();
 
     let out = status(false).unwrap();
-    assert!(out.contains("Staged changes"));
+    assert!(out.contains("Staged:"));
+    assert!(out.contains("Added Files:"));
     assert!(out.contains("stage_me.txt"));
 }
 
@@ -61,7 +61,8 @@ fn status_reports_modified() {
     write_file(&file_path, "v2");
 
     let out = status(false).unwrap();
-    assert!(out.contains("Modified"));
+    assert!(out.contains("Unstaged:"));
+    assert!(out.contains("Modified:"));
     assert!(out.contains("mod.txt"));
 }
 
@@ -76,7 +77,8 @@ fn status_reports_deleted() {
     fs::remove_file(&file_path).unwrap();
 
     let out = status(false).unwrap();
-    assert!(out.contains("Deleted"));
+    assert!(out.contains("Unstaged:"));
+    assert!(out.contains("Deleted:"));
     assert!(out.contains("gone.txt"));
 }
 
@@ -89,9 +91,9 @@ fn status_reports_clean_repo() {
     commit_helper(&file_path, "content", "initial commit");
 
     let out = status(false).unwrap();
-    assert!(out.contains("Staged changes"));
-    assert!(out.contains("clean_repo.txt"));
     assert!(!out.contains("Untracked files"));
-    assert!(!out.contains("Modified"));
-    assert!(!out.contains("Deleted"));
+    assert!(!out.contains("Unstaged:"));
+    assert!(!out.contains("Added Files:"));
+    assert!(!out.contains("Modified:"));
+    assert!(!out.contains("Deleted:"));
 }

@@ -1,11 +1,6 @@
 use crate::core::{
-    io::read_file,
-    hash::hash,
     diff::{ get_all_diffs, DiffType },
 };
-
-use std::fs::read_dir;
-use std::path::Path;
 
 pub fn status(print: bool) -> std::io::Result<String> {
     let diffs = get_all_diffs()?;
