@@ -11,6 +11,17 @@ use std::path::Path;
 #[derive(Eq, Hash, PartialEq)]
 pub enum DiffType { Added, Modified, Deleted, Untracked, Staged, StagedDelete }
 
+pub fn get_all_diffs() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
+    let mut diffs = HashMap::new();
+    let working_diffs = diff_working_to_index()?;
+    let index_diffs = diff_index_to_head()?;
+
+    diffs.extend(working_diffs);
+    diffs.extend(index_diffs);
+
+    Ok(diffs)
+}
+
 pub fn diff_index_to_head() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
     let mut tracker: HashMap<DiffType, Vec<String>> = HashMap::new();
 
