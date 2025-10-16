@@ -86,3 +86,60 @@ pub fn diff_index_to_head() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
     Ok(tracker)
 }
 
+pub fn diff_working_to_index() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
+    let mut tracker: HashMap<DiffType, Vec<String>> = HashMap::new();
+
+    let index = read_index()?;
+    let mut working: Vec<(String, String)> = vec![];
+    let root = find_repo_root()?;
+
+    walk(&root, &mut working, &root)?;
+
+    let index_map: HashMap<String, String> = index.iter()
+        .map(|(oid, p)| (p.clone(), oid.clone()))
+        .collect();
+
+    for working_entry in working {
+        let wrk_oid = working_entry.0;
+        let wrk_path = working_entry.1;
+        if let Some(index_oid) = index_map.get(&wrk_path) {
+            if &wrk_oid != index_oid {
+                tracker.entry(DiffType::Modified)
+                    .or_default()
+                    .push(wrk_path);
+            }
+        } else {
+            tracker.entry(DiffType::Untracked)
+                .or_default()
+                .push(wrk_path);
+        }
+    }
+    Ok(tracker)
+}
+
+fn walk(path: &Path, working: &mut Vec<(String, String)>, root: &Path) -> std::io::Result<()> {
+    if path.is_dir() {
+        for child in read_dir(path)? {
+            let dir = child.unwrap();
+            if path.file_name().map_or(false, |n| n == ".nag") {
+                return Ok(());
+            }
+            walk(&dir.path(), working, root)?;
+        }
+    } else if path.is_file() {
+        let abs_path = path.canonicalize()?;
+
+        let rel_path = path.strip_prefix(&root).unwrap_or(path);
+        let mut rel_str = rel_path.to_string_lossy().to_string();
+
+        rel_str = rel_str.replace('\\', "/");
+        if rel_str.starts_with("./") {
+            rel_str = rel_str[2..].to_string();
+        }
+
+        let file = read_file(&abs_path.to_string_lossy());
+        let blob = hash(&file);
+        working.push((blob, rel_str));
+    }
+    Ok(())
+}
