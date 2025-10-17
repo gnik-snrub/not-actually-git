@@ -2,6 +2,7 @@ use crate::core::io::{ read_file, write_file };
 use crate::core::repo::find_repo_root;
 
 use std::fs::read_dir;
+use std::path::Path;
 
 pub fn branch(branch: String, source_oid: Option<String>) -> std::io::Result<()> {
 
@@ -20,6 +21,9 @@ pub fn branch(branch: String, source_oid: Option<String>) -> std::io::Result<()>
     }
 
     if let Some(oid) = source_oid {
+        if let Some(parent) = refs_dir.join(&branch).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         write_file(&oid.as_bytes().to_vec(), &refs_dir.join(&branch))?;
         println!("Branch {} created at {}", branch, oid);
     } else {
@@ -33,11 +37,14 @@ pub fn branch(branch: String, source_oid: Option<String>) -> std::io::Result<()>
         let branch_contents = read_file(&branch_path.to_string_lossy());
         let oid = String::from_utf8_lossy(&branch_contents).trim().to_string();
 
+        if let Some(parent) = refs_dir.join(&branch).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         write_file(&oid.as_bytes().to_vec(), &refs_dir.join(&branch))?;
 
         println!("Branch {} created at {}", branch, oid);
     }
-    Ok())
+    Ok(())
 }
 
 pub fn branch_list(print: bool) -> std::io::Result<String> {
@@ -49,14 +56,13 @@ pub fn branch_list(print: bool) -> std::io::Result<String> {
     let trimmed = head_str.trim();
     let active_branch = trimmed.strip_prefix("ref: refs/heads/").unwrap_or(trimmed);
 
+    let mut all_branches = Vec::new();
+    collect_branches(&refs_dir, &mut all_branches, Some(String::new()))?;
+
+    all_branches.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+
     let mut output = String::new();
-    let mut branches: Vec<String> = read_dir(refs_dir)?
-        .filter_map(|e| e.ok()?.file_name().into_string().ok())
-        .collect();
-
-    branches.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
-
-    for entry in branches {
+    for entry in all_branches {
         if entry == active_branch {
             output.push('*');
         }
@@ -68,4 +74,25 @@ pub fn branch_list(print: bool) -> std::io::Result<String> {
     }
 
     Ok(output)
+}
+
+fn collect_branches(path: &Path, branches: &mut Vec<String>, prefix: Option<String>) -> std::io::Result<()> {
+    if path.is_dir() {
+        for child in read_dir(path)? {
+            let dir = child.unwrap();
+            let name = dir.file_name().to_string_lossy().to_string();
+
+            let full_name = match &prefix {
+                Some(pre) if !pre.is_empty() => format!("{}/{}", pre, name),
+                _ => name.clone(),
+            };
+
+            if dir.path().is_dir() {
+                collect_branches(&dir.path(), branches, Some(full_name))?;
+            } else if dir.path().is_file() {
+                branches.push(full_name);
+            }
+        }
+    }
+    Ok(())
 }
