@@ -5,7 +5,7 @@ use crate::commands::{
     status::status,
     commit::commit,
     checkout::checkout,
-    branch::branch,
+    branch::{ branch, branch_list },
     restore::restore,
 };
 use crate::core::io::read_file;
@@ -41,7 +41,10 @@ enum Command {
         branch: String,
     },
     Branch {
-        branch_name: String,
+        branch_name: Option<String>,
+        source_oid: Option<String>,
+        #[arg(short = 'l', long = "list")]
+        list: bool,
     },
     Restore {
         restore_path: String,
@@ -73,8 +76,13 @@ pub fn run_command() -> std::io::Result<()> {
         Cli { command: Some(Command::Checkout { branch })} => {
             checkout(branch)?;
         },
-        Cli { command: Some(Command::Branch { branch_name })} => {
-            branch(branch_name)?;
+        Cli { command: Some(Command::Branch { branch_name, source_oid, list })} => {
+            if list {
+                branch_list(true)?;
+            } else {
+                let b_name = branch_name.unwrap();
+                branch(b_name, source_oid)?;
+            }
         },
         Cli { command: Some(Command::Restore { restore_path })} => {
             restore(restore_path)?;
