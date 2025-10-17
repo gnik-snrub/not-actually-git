@@ -1,8 +1,16 @@
 use crate::core::io::{ read_file, write_file };
 use crate::core::repo::find_repo_root;
 
-pub fn branch(branch: String) -> std::io::Result<()> {
-    let nag_head = find_repo_root()?.join(".nag");
+use std::fs::read_dir;
+
+pub fn branch(branch: String, source_oid: Option<String>) -> std::io::Result<()> {
+
+    if branch_list(false)?.contains(&branch) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("Branch '{}' already exists", branch),
+        ));
+    }
 
     let refs_dir = nag_head.join("refs/heads");
     if refs_dir.join(&branch).exists() {
