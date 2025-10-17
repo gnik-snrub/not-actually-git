@@ -36,7 +36,7 @@ fn checkout_switches_branches_cleanly() {
     let main_file = root.join("main.txt");
     commit_helper(&main_file, "main branch data", "initial commit");
 
-    branch("feature".to_string()).unwrap();
+    branch("feature".to_string(), None).unwrap();
     checkout("feature".to_string()).unwrap();
 
     let new_file = root.join("feature.txt");
@@ -57,7 +57,7 @@ fn checkout_refuses_to_overwrite_dirty_working_dir() {
 
     // make uncommitted edit
     fs::write(&file_path, "new data").unwrap();
-    branch("restore".to_string()).unwrap();
+    branch("restore".to_string(), None).unwrap();
 
     // this should fail, not succeed
     let result = checkout("restore".to_string());
@@ -102,7 +102,7 @@ fn checkout_updates_head_to_target_branch() {
     let file_path = root.join("main_file.txt");
     commit_helper(&file_path, "abc", "initial");
 
-    branch("dev".to_string()).unwrap();
+    branch("dev".to_string(), None).unwrap();
     checkout("dev".to_string()).unwrap();
 
     let head_path = find_repo_root().unwrap().join(".nag/HEAD");
@@ -119,7 +119,7 @@ fn checkout_produces_clean_status_after_switch() {
     let main_file = root.join("main.txt");
     commit_helper(&main_file, "stable", "init");
 
-    branch("feature".to_string()).unwrap();
+    branch("feature".to_string(), None).unwrap();
     checkout("feature".to_string()).unwrap();
 
     let out = status(false).unwrap();
