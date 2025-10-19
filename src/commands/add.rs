@@ -38,7 +38,7 @@ fn walk(path: &Path, entries: &mut Vec<(String, String)>) -> std::io::Result<()>
             rel_str = rel_str[2..].to_string();
         }
 
-        let file = read_file(&abs_path.to_string_lossy());
+        let file = read_file(&abs_path.to_string_lossy())?;
         let blob = hash(&file);
         write_object(&file, &blob)?;
         update_or_insert(blob, rel_str, entries);

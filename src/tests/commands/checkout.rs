@@ -106,7 +106,7 @@ fn checkout_updates_head_to_target_branch() {
     checkout("dev".to_string()).unwrap();
 
     let head_path = find_repo_root().unwrap().join(".nag/HEAD");
-    let bytes = read_file(&head_path.to_string_lossy());
+    let bytes = read_file(&head_path.to_string_lossy()).unwrap();
     let head_contents = String::from_utf8_lossy(&bytes);
     assert!(head_contents.contains("refs/heads/dev"));
 }

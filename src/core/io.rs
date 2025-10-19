@@ -4,14 +4,13 @@ use std::path::Path;
 use rand::random;
 use crate::core::repo::find_repo_root;
 
-pub fn read_file(path: &str) -> Vec<u8> {
+pub fn read_file(path: &str) -> std::io::Result<Vec<u8>> {
     match std::fs::read(path) {
         Ok(bytes) => {
-            bytes
+            Ok(bytes)
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
-            vec![]
+            Err(e)
         }
     }
 }

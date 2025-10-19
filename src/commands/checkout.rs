@@ -25,7 +25,7 @@ pub fn checkout(branch: String) -> std::io::Result<()> {
             format!("Branch '{}' not found", branch),
         ));
     }
-    let branch_contents = read_file(&branch_path.to_string_lossy());
+    let branch_contents = read_file(&branch_path.to_string_lossy())?;
     let branch_str = String::from_utf8_lossy(&branch_contents);
 
     let commit_path = nag_dir.join("objects").join(branch_str.trim());
@@ -35,7 +35,7 @@ pub fn checkout(branch: String) -> std::io::Result<()> {
             format!("Commit '{}' not found", branch),
         ));
     }
-    let commit_contents = read_file(&commit_path.to_string_lossy());
+    let commit_contents = read_file(&commit_path.to_string_lossy())?;
     let commit_str = String::from_utf8_lossy(&commit_contents);
 
     let tree_line = commit_str.lines().next().unwrap();
@@ -72,7 +72,7 @@ pub fn checkout(branch: String) -> std::io::Result<()> {
             create_dir_all(parent)?;
         }
         let object_path = nag_dir.join("objects").join(oid);
-        let obj_contents = read_file(&object_path.to_string_lossy());
+        let obj_contents = read_file(&object_path.to_string_lossy())?;
         write_file(&obj_contents, &path)?;
     }
 

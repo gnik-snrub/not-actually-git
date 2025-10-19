@@ -12,7 +12,7 @@ fn read_file_returns_contents() {
     let file_path = tmp.path().join("test.txt");
 
     fs::write(&file_path, b"hello world").unwrap();
-    let bytes = read_file(file_path.to_str().unwrap());
+    let bytes = read_file(file_path.to_str().unwrap()).unwrap();
 
     assert_eq!(bytes, b"hello world");
 }
@@ -23,7 +23,7 @@ fn read_file_returns_empty_on_missing() {
     let file_path = tmp.path().join("missing.txt");
 
     let bytes = read_file(file_path.to_str().unwrap());
-    assert_eq!(bytes, Vec::<u8>::new());
+    assert!(bytes.is_err());
 }
 
 #[test]

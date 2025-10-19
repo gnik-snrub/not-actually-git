@@ -37,20 +37,20 @@ pub fn diff_index_to_head() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
     let wrk_paths: HashSet<_> = working.iter().map(|(_, p)| p.clone()).collect();
 
     let head_path = root.join(".nag").join("HEAD");
-    let proj_head_contents = read_file(&head_path.to_string_lossy());
+    let proj_head_contents = read_file(&head_path.to_string_lossy())?;
     let head_str = String::from_utf8_lossy(&proj_head_contents);
 
     let target = head_str.trim();
     let branch_path_fragment = target.strip_prefix("ref: ").unwrap_or(target);
     let branch_path = root.join(".nag").join(branch_path_fragment);
-    let branch_contents = read_file(&branch_path.to_string_lossy());
+    let branch_contents = read_file(&branch_path.to_string_lossy())?;
     let branch_oid = String::from_utf8_lossy(&branch_contents);
 
     let head_index_map = if branch_oid.trim().is_empty() {
         HashMap::new()
     } else {
         let commit_path = root.join(".nag").join("objects").join(format!("{}", branch_oid));
-        let commit_contents = read_file(&commit_path.to_string_lossy());
+        let commit_contents = read_file(&commit_path.to_string_lossy())?;
         let commit_str = String::from_utf8_lossy(&commit_contents);
 
         let tree_line = commit_str
@@ -148,7 +148,7 @@ fn walk(path: &Path, working: &mut Vec<(String, String)>, root: &Path) -> std::i
             rel_str = rel_str[2..].to_string();
         }
 
-        let file = read_file(&abs_path.to_string_lossy());
+        let file = read_file(&abs_path.to_string_lossy())?;
         let blob = hash(&file);
         working.push((blob, rel_str));
     }

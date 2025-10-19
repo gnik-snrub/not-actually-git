@@ -28,7 +28,7 @@ fn write_tree_with_single_file() {
     let tree_path = tmp.path().join(".nag/objects").join(&tree_hash);
     assert!(tree_path.exists());
 
-    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap())).unwrap();
+    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap()).unwrap()).unwrap();
     assert!(tree_content.contains("100644\tfile.txt"));
 }
 
@@ -45,7 +45,7 @@ fn write_tree_with_nested_dir() {
 
     let tree_hash = write_tree(&tmp.path().to_path_buf()).unwrap();
     let tree_path = tmp.path().join(".nag/objects").join(&tree_hash);
-    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap())).unwrap();
+    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap()).unwrap()).unwrap();
 
     assert!(tree_content.contains("040000\tsubdir")); // directory entry
 }
@@ -64,7 +64,7 @@ fn write_tree_sets_exec_permission() {
 
     let tree_hash = write_tree(&tmp.path().to_path_buf()).unwrap();
     let tree_path = tmp.path().join(".nag/objects").join(&tree_hash);
-    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap())).unwrap();
+    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap()).unwrap()).unwrap();
 
     assert!(tree_content.contains("100755\trun.sh"));
 }
@@ -80,7 +80,7 @@ fn write_tree_skips_nag_dir() {
 
     let tree_hash = write_tree(&tmp.path().to_path_buf()).unwrap();
     let tree_path = tmp.path().join(".nag/objects").join(&tree_hash);
-    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap())).unwrap();
+    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap()).unwrap()).unwrap();
 
     assert!(!tree_content.contains("hidden.txt"));
 }
@@ -92,7 +92,7 @@ fn write_tree_empty_repo() {
 
     let tree_hash = write_tree(&tmp.path().to_path_buf()).unwrap();
     let tree_path = tmp.path().join(".nag/objects").join(&tree_hash);
-    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap())).unwrap();
+    let tree_content = String::from_utf8(read_file(tree_path.to_str().unwrap()).unwrap()).unwrap();
 
     assert!(tree_content.is_empty());
 }

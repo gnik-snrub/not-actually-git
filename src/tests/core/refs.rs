@@ -2,7 +2,10 @@ use tempfile::TempDir;
 use std::fs;
 use std::path::Path;
 
-use crate::core::refs::resolve_head;
+use crate::core::refs::{
+    resolve_head,
+    read_ref,
+};
 use crate::core::repo::find_repo_root;
 
 fn init_fake_repo(tmp: &TempDir) -> std::path::PathBuf {
@@ -64,3 +67,49 @@ fn resolve_head_trims_newlines_and_whitespace() {
     assert_eq!(branch_name, Some("main".to_string()));
     assert_eq!(oid, "deadbeef1234abcd");
 }
+
+#[test]
+fn read_ref_reads_full_ref_path() {
+    let tmp = TempDir::new().unwrap();
+    let root = init_fake_repo(&tmp);
+
+    let full_ref_path = root.join(".nag/refs/heads/dev");
+    write(&full_ref_path, "cafebabe1234abcd");
+
+    let result = read_ref("refs/heads/dev").unwrap();
+    assert_eq!(result, "cafebabe1234abcd");
+}
+
+#[test]
+fn read_ref_reads_short_branch_name() {
+    let tmp = TempDir::new().unwrap();
+    let root = init_fake_repo(&tmp);
+
+    let short_ref_path = root.join(".nag/refs/heads/main");
+    write(&short_ref_path, "deadbeef9876feed");
+
+    let result = read_ref("main").unwrap();
+    assert_eq!(result, "deadbeef9876feed");
+}
+
+#[test]
+fn read_ref_trims_whitespace_and_newlines() {
+    let tmp = TempDir::new().unwrap();
+    let root = init_fake_repo(&tmp);
+
+    let path = root.join(".nag/refs/heads/feature");
+    write(&path, "abcd1234efef5678\n\n");
+
+    let result = read_ref("feature").unwrap();
+    assert_eq!(result, "abcd1234efef5678");
+}
+
+#[test]
+fn read_ref_fails_on_missing_ref() {
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let result = read_ref("nonexistent");
+    assert!(result.is_err());
+}
+

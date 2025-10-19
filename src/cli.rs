@@ -60,7 +60,7 @@ pub fn run_command() -> std::io::Result<()> {
             init(input_path);
         },
         Cli { command: Some(Command::Hash { file_path })} => {
-            let file = read_file(&file_path);
+            let file = read_file(&file_path)?;
             hash(&file);
         },
         Cli { command: Some(Command::Add { path_str })} => {

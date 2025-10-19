@@ -40,10 +40,10 @@ fn branch_creates_new_branch_file_with_correct_oid() {
 
     assert!(dev_branch_path.exists());
 
-    let main_bytes = read_file(&main_branch_path.to_string_lossy());
+    let main_bytes = read_file(&main_branch_path.to_string_lossy()).unwrap();
     let main_oid = String::from_utf8_lossy(&main_bytes).trim().to_string();
 
-    let dev_bytes = read_file(&dev_branch_path.to_string_lossy());
+    let dev_bytes = read_file(&dev_branch_path.to_string_lossy()).unwrap();
     let dev_oid = String::from_utf8_lossy(&dev_bytes).trim().to_string();
 
     assert_eq!(main_oid, dev_oid);
@@ -63,7 +63,7 @@ fn branch_can_be_created_from_specific_oid() {
 
     // Get OID of first commit
     let main_path = find_repo_root().unwrap().join(".nag/refs/heads/main");
-    let main_bytes = read_file(&main_path.to_string_lossy());
+    let main_bytes = read_file(&main_path.to_string_lossy()).unwrap();
     let first_commit_oid = String::from_utf8_lossy(&main_bytes).trim().to_string();
 
     // Create branch from specific commit OID
@@ -72,7 +72,7 @@ fn branch_can_be_created_from_specific_oid() {
     let retro_path = find_repo_root().unwrap().join(".nag/refs/heads/retro");
     assert!(retro_path.exists());
 
-    let retro_bytes = read_file(&retro_path.to_string_lossy());
+    let retro_bytes = read_file(&retro_path.to_string_lossy()).unwrap();
     let retro_oid = String::from_utf8_lossy(&retro_bytes).trim().to_string();
 
     assert_eq!(retro_oid, first_commit_oid);
@@ -128,7 +128,7 @@ fn branch_does_not_affect_current_head() {
     branch("alt".to_string(), None).unwrap();
 
     let head_path = find_repo_root().unwrap().join(".nag/HEAD");
-    let head_bytes = read_file(&head_path.to_string_lossy());
+    let head_bytes = read_file(&head_path.to_string_lossy()).unwrap();
     let head_contents = String::from_utf8_lossy(&head_bytes);
     assert!(head_contents.contains("refs/heads/main"));
 }

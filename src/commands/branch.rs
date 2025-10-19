@@ -28,13 +28,13 @@ pub fn branch(branch: String, source_oid: Option<String>) -> std::io::Result<()>
         println!("Branch {} created at {}", branch, oid);
     } else {
         let proj_head = nag_head.join("HEAD");
-        let proj_head_contents = read_file(&proj_head.to_string_lossy());
+        let proj_head_contents = read_file(&proj_head.to_string_lossy())?;
         let head_str = String::from_utf8_lossy(&proj_head_contents);
 
         let target = head_str.trim();
         let branch_path_fragment = target.strip_prefix("ref: ").unwrap_or(target);
         let branch_path = nag_head.join(branch_path_fragment);
-        let branch_contents = read_file(&branch_path.to_string_lossy());
+        let branch_contents = read_file(&branch_path.to_string_lossy())?;
         let oid = String::from_utf8_lossy(&branch_contents).trim().to_string();
 
         if let Some(parent) = refs_dir.join(&branch).parent() {
@@ -51,7 +51,7 @@ pub fn branch_list(print: bool) -> std::io::Result<String> {
     let nag_head = find_repo_root()?.join(".nag");
     let refs_dir = nag_head.join("refs/heads");
     let proj_head = nag_head.join("HEAD");
-    let proj_head_contents = read_file(&proj_head.to_string_lossy());
+    let proj_head_contents = read_file(&proj_head.to_string_lossy())?;
     let head_str = String::from_utf8_lossy(&proj_head_contents);
     let trimmed = head_str.trim();
     let active_branch = trimmed.strip_prefix("ref: refs/heads/").unwrap_or(trimmed);

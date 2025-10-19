@@ -57,7 +57,7 @@ pub fn write_tree(root_path: &PathBuf) -> std::io::Result<String> {
             }
             let p_type = p.file_type()?;
             if p_type.is_file() {
-                let data = read_file(&p.path().display().to_string());
+                let data = read_file(&p.path().display().to_string())?;
                 let blob = hash(&data);
                 let entry = format_entry(perms, &name_str, &blob);
                 string_buf.push_str(&entry);
@@ -149,7 +149,7 @@ pub fn read_tree_to_index(tree_oid: &str) -> std::io::Result<Vec<(String, String
 
 fn read_t_to_i_walk(tree_oid: &str, entries: &mut Vec<(String, String)>) -> std::io::Result<()> {
     let tree_str = find_repo_root()?.join(".nag").join("objects").join(tree_oid);
-    let tree_bytes = read_file(&tree_str.to_string_lossy());
+    let tree_bytes = read_file(&tree_str.to_string_lossy())?;
     let tree_str = String::from_utf8_lossy(&tree_bytes);
 
     for line in tree_str.lines() {
