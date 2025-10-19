@@ -27,3 +27,17 @@ pub fn resolve_head() -> std::io::Result<(Option<String>, String)> {
     }
 }
 
+pub fn read_ref(ref_name: &str) -> std::io::Result<String> {
+    let ref_name_full = if !ref_name.starts_with("refs/") {
+        format!("refs/heads/{}", ref_name)
+    } else {
+        ref_name.to_string()
+    };
+
+    let ref_path = find_repo_root()?.join(".nag").join(ref_name_full);
+    let ref_contents = read_file(&ref_path.to_string_lossy())?;
+    let ref_str = String::from_utf8_lossy(&ref_contents);
+    let trimmed = ref_str.trim().to_string();
+
+    Ok(trimmed)
+}
