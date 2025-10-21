@@ -1,5 +1,5 @@
 use crate::core::repo::find_repo_root;
-use crate::core::io::read_file;
+use crate::core::io::{ read_file, write_file };
 
 pub fn resolve_head() -> std::io::Result<(Option<String>, String)> {
     let nag_head = find_repo_root()?.join(".nag");
@@ -40,4 +40,22 @@ pub fn read_ref(ref_name: &str) -> std::io::Result<String> {
     let trimmed = ref_str.trim().to_string();
 
     Ok(trimmed)
+}
+
+pub fn update_ref(name: &str, oid: &str) -> std::io::Result<()> {
+    let name_full = if !name.starts_with("refs/") {
+        format!("refs/heads/{}", name)
+    } else {
+        name.to_string()
+    };
+
+    let full_path = find_repo_root()?.join(".nag").join(name_full);
+
+    if let Some(parent) = full_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    write_file(&oid.as_bytes().to_vec(), &full_path)?;
+
+    Ok(())
 }
