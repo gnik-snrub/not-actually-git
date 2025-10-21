@@ -75,3 +75,20 @@ pub fn set_head_ref(branch: &str) -> std::io::Result<()> {
 
     Ok(())
 }
+
+pub fn set_head_detached(oid: &str) -> std::io::Result<()> {
+    let nag_dir = find_repo_root()?.join(".nag");
+    let head_path = nag_dir.join("HEAD");
+    let object_path = nag_dir.join("objects").join(oid);
+
+    if read_file(&object_path.as_os_str().to_string_lossy().to_string()).is_err() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Commit object '{}' not found", object_path.display()),
+        ));
+    }
+
+    write_file(&oid.as_bytes().to_vec(), &head_path)?;
+
+    Ok(())
+}
