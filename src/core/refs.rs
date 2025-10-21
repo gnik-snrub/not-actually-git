@@ -1,6 +1,9 @@
 use crate::core::repo::find_repo_root;
 use crate::core::io::{ read_file, write_file };
 
+use std::path::Path;
+use std::fs::read_dir;
+
 pub fn resolve_head() -> std::io::Result<(Option<String>, String)> {
     let nag_head = find_repo_root()?.join(".nag");
     let proj_head = nag_head.join("HEAD");
@@ -90,5 +93,39 @@ pub fn set_head_detached(oid: &str) -> std::io::Result<()> {
 
     write_file(&oid.as_bytes().to_vec(), &head_path)?;
 
+    Ok(())
+}
+
+pub fn list_refs(prefix: &str) -> std::io::Result<Vec<String>> {
+    let nag_head = find_repo_root()?.join(".nag");
+    let refs_dir = nag_head.join(prefix);
+
+    let mut all_refs = Vec::new();
+    collect_refs(&refs_dir, &mut all_refs, Some(String::new()))?;
+
+    all_refs.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+
+    Ok(all_refs)
+}
+
+
+fn collect_refs(path: &Path, refs: &mut Vec<String>, prefix: Option<String>) -> std::io::Result<()> {
+    if path.is_dir() {
+        for child in read_dir(path)? {
+            let dir = child.unwrap();
+            let name = dir.file_name().to_string_lossy().to_string();
+
+            let full_name = match &prefix {
+                Some(pre) if !pre.is_empty() => format!("{}/{}", pre, name),
+                _ => name.clone(),
+            };
+
+            if dir.path().is_dir() {
+                collect_refs(&dir.path(), refs, Some(full_name))?;
+            } else if dir.path().is_file() {
+                refs.push(full_name);
+            }
+        }
+    }
     Ok(())
 }
