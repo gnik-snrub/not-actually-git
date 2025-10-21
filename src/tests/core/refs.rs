@@ -7,7 +7,8 @@ use crate::core::refs::{
     read_ref,
     update_ref,
     set_head_ref,
-    set_head_detached
+    set_head_detached,
+    list_refs
 };
 use crate::core::repo::find_repo_root;
 use crate::core::io::{ read_file, write_file };
@@ -204,5 +205,61 @@ fn set_head_detached_fails_on_missing_object() {
 
     let result = set_head_detached("missingoid");
     assert!(result.is_err());
+}
+
+#[test]
+fn list_refs_returns_top_level_branches() {
+    // Purpose: verify that list_refs() finds refs directly in refs/heads/
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let heads = tmp.path().join(".nag/refs/heads");
+    write_file(&b"123".to_vec(), &heads.join("main")).unwrap();
+    write_file(&b"456".to_vec(), &heads.join("dev")).unwrap();
+
+    let refs = list_refs("refs/heads").unwrap();
+
+    assert_eq!(refs, vec!["dev".to_string(), "main".to_string()]);
+}
+
+#[test]
+fn list_refs_recurses_into_nested_dirs() {
+    // Purpose: ensure nested refs like feature/ui are detected and flattened
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let nested = tmp.path().join(".nag/refs/heads/feature");
+    std::fs::create_dir_all(&nested).unwrap();
+    write_file(&b"abc".to_vec(), &nested.join("ui")).unwrap();
+
+    let refs = list_refs("refs/heads").unwrap();
+
+    assert_eq!(refs, vec!["feature/ui".to_string()]);
+}
+
+#[test]
+fn list_refs_sorts_case_insensitive() {
+    // Purpose: ensure sorting ignores case differences
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let heads = tmp.path().join(".nag/refs/heads");
+    write_file(&b"1".to_vec(), &heads.join("Zoo")).unwrap();
+    write_file(&b"2".to_vec(), &heads.join("apple")).unwrap();
+    write_file(&b"3".to_vec(), &heads.join("Beta")).unwrap();
+
+    let refs = list_refs("refs/heads").unwrap();
+
+    assert_eq!(refs, vec!["apple", "Beta", "Zoo"]);
+}
+
+#[test]
+fn list_refs_returns_empty_for_missing_prefix() {
+    // Purpose: confirm function handles missing refs/ path gracefully
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let refs = list_refs("refs/tags").unwrap();
+    assert!(refs.is_empty());
 }
 
