@@ -6,9 +6,10 @@ use crate::core::refs::{
     resolve_head,
     read_ref,
     update_ref,
+    set_head_ref,
 };
 use crate::core::repo::find_repo_root;
-use crate::core::io::read_file;
+use crate::core::io::{ read_file, write_file };
 
 fn init_fake_repo(tmp: &TempDir) -> std::path::PathBuf {
     let root = tmp.path().to_path_buf();
@@ -148,3 +149,29 @@ fn update_ref_overwrites_existing_branch() {
     assert_eq!(contents.trim(), "222222");
 }
 
+#[test]
+fn set_head_ref_points_to_existing_branch() {
+    // Purpose: ensure HEAD file is rewritten to point to an existing branch
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    // create a dummy branch first
+    update_ref("dev", "abc123").unwrap();
+
+    set_head_ref("dev").unwrap();
+
+    let head_path = tmp.path().join(".nag/HEAD");
+    let bytes = read_file(&head_path.to_string_lossy()).unwrap();
+    let contents = String::from_utf8_lossy(&bytes);
+    assert_eq!(contents.trim(), "ref: refs/heads/dev");
+}
+
+#[test]
+fn set_head_ref_fails_on_missing_branch() {
+    // Purpose: HEAD cannot be set to a branch that doesn’t exist
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let result = set_head_ref("nope");
+    assert!(result.is_err());
+}
