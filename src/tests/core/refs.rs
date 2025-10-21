@@ -5,8 +5,10 @@ use std::path::Path;
 use crate::core::refs::{
     resolve_head,
     read_ref,
+    update_ref,
 };
 use crate::core::repo::find_repo_root;
+use crate::core::io::read_file;
 
 fn init_fake_repo(tmp: &TempDir) -> std::path::PathBuf {
     let root = tmp.path().to_path_buf();
@@ -111,5 +113,38 @@ fn read_ref_fails_on_missing_ref() {
 
     let result = read_ref("nonexistent");
     assert!(result.is_err());
+}
+
+#[test]
+fn update_ref_creates_and_writes_branch() {
+    // Purpose: ensure update_ref creates parent dirs and writes correct OID
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let oid = "abc123";
+    let ref_path = tmp.path().join(".nag/refs/heads/feature/test");
+
+    // should create nested dirs and write oid
+    update_ref("feature/test", oid).unwrap();
+    assert!(ref_path.exists());
+
+    let bytes = read_file(&ref_path.to_string_lossy()).unwrap();
+    let contents = String::from_utf8_lossy(&bytes);
+    assert_eq!(contents.trim(), oid);
+}
+
+#[test]
+fn update_ref_overwrites_existing_branch() {
+    // Purpose: ensure update_ref can overwrite an existing ref cleanly
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    update_ref("main", "111111").unwrap();
+    update_ref("main", "222222").unwrap();
+
+    let ref_path = tmp.path().join(".nag/refs/heads/main");
+    let bytes = read_file(&ref_path.to_string_lossy()).unwrap();
+    let contents = String::from_utf8_lossy(&bytes);
+    assert_eq!(contents.trim(), "222222");
 }
 
