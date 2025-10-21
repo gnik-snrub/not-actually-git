@@ -7,6 +7,7 @@ use crate::core::refs::{
     read_ref,
     update_ref,
     set_head_ref,
+    set_head_detached
 };
 use crate::core::repo::find_repo_root;
 use crate::core::io::{ read_file, write_file };
@@ -175,3 +176,33 @@ fn set_head_ref_fails_on_missing_branch() {
     let result = set_head_ref("nope");
     assert!(result.is_err());
 }
+
+#[test]
+fn set_head_detached_writes_oid_to_head() {
+    // Purpose: verify HEAD stores bare OID and not a ref prefix
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    // simulate object file for valid oid
+    let oid = "xyz789";
+    let obj_path = tmp.path().join(".nag/objects").join(oid);
+    write_file(&b"dummy data".to_vec(), &obj_path).unwrap();
+
+    set_head_detached(oid).unwrap();
+
+    let head_path = tmp.path().join(".nag/HEAD");
+    let bytes = read_file(&head_path.to_string_lossy()).unwrap();
+    let contents = String::from_utf8_lossy(&bytes);
+    assert_eq!(contents.trim(), oid);
+}
+
+#[test]
+fn set_head_detached_fails_on_missing_object() {
+    // Purpose: cannot detach to nonexistent commit object
+    let tmp = TempDir::new().unwrap();
+    init_fake_repo(&tmp);
+
+    let result = set_head_detached("missingoid");
+    assert!(result.is_err());
+}
+
