@@ -59,3 +59,19 @@ pub fn update_ref(name: &str, oid: &str) -> std::io::Result<()> {
 
     Ok(())
 }
+
+pub fn set_head_ref(branch: &str) -> std::io::Result<()> {
+    if read_ref(branch).is_err() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Branch '{}' not found", branch),
+        ));
+    }
+
+    let nag_dir = find_repo_root()?.join(".nag");
+    let head_path = nag_dir.join("HEAD");
+    let ref_line = format!("ref: refs/heads/{}\n", branch);
+    write_file(&ref_line.as_bytes().to_vec(), &head_path)?;
+
+    Ok(())
+}
