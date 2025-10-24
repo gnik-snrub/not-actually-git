@@ -7,6 +7,7 @@ use crate::commands::{
     checkout::checkout,
     branch::{ branch, branch_list },
     restore::restore,
+    merge::ff_merge,
 };
 use crate::core::io::read_file;
 use crate::core::hash::hash;
@@ -49,6 +50,9 @@ enum Command {
     Restore {
         restore_path: String,
     },
+    Merge {
+        target_branch: String
+    },
     Test {
     }
 }
@@ -87,7 +91,8 @@ pub fn run_command() -> std::io::Result<()> {
         Cli { command: Some(Command::Restore { restore_path })} => {
             restore(restore_path)?;
         },
-        Cli { command: Some(Command::Test { })} => {
+        Cli { command: Some(Command::Merge { target_branch })} => {
+            ff_merge(target_branch)?;
         },
         Cli { command: None } => {}
     }
