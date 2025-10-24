@@ -5,3 +5,4 @@ pub mod commit;
 pub mod checkout;
 pub mod branch;
 pub mod restore;
+pub mod merge;
