@@ -6,3 +6,4 @@ pub mod checkout;
 pub mod branch;
 pub mod restore;
 pub mod merge;
+pub mod tag;
