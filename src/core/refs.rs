@@ -11,8 +11,6 @@ pub fn resolve_head() -> std::io::Result<(Option<String>, String)> {
     let head_str = String::from_utf8_lossy(&proj_head_contents);
     let trimmed_head = head_str.trim();
 
-    println!("head: {:?}", trimmed_head);
-
     if trimmed_head.starts_with("ref: ") {
         // HEAD is pointing to a branch
         let branch_path = nag_head.join(trimmed_head.strip_prefix("ref: ").unwrap_or(trimmed_head));
