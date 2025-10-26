@@ -11,10 +11,12 @@ use crate::commands::{
     tag::{
         list_tags,
         delete_tag,
+        tag,
     },
 };
 use crate::core::io::read_file;
 use crate::core::hash::hash;
+use crate::core::refs::read_ref;
 
 use std::path::Path;
 
@@ -65,8 +67,6 @@ enum Command {
         #[arg(short = 'd', long = "delete")]
         delete: bool,
     },
-    Test {
-    }
 }
 
 pub fn run_command() -> std::io::Result<()> {
@@ -107,14 +107,15 @@ pub fn run_command() -> std::io::Result<()> {
             ff_merge(target_branch)?;
         },
         Cli { command: Some(Command::Tag { tag_name, commit_name, message, delete })} => {
-            println!("{:?} - {:?}", commit_name, message);
             if tag_name.is_none() {
                 list_tags(true)?;
                 return Ok(());
             }
             if delete && let Some(name) = tag_name {
                 delete_tag(name)?;
+                return Ok(());
             }
+            tag(tag_name, commit_name, message)?;
         },
         Cli { command: None } => {}
     }
