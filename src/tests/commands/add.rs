@@ -4,17 +4,15 @@ use tempfile::TempDir;
 
 use crate::core::index::read_index;
 use crate::commands::add::add;
+use crate::commands::init::init;
+use crate::core::io::read_file;
 
 // Helper: initialize fake repo with .nag structure and cd into it
 fn init_repo(tmp: &TempDir) -> std::path::PathBuf {
-    let nag_root = tmp.path().join(".nag");
-    let objects = nag_root.join("objects");
-    fs::create_dir_all(&objects).unwrap();
-
-    // important: pretend we’re “inside” the repo root
     std::env::set_current_dir(tmp.path()).unwrap();
-
-    nag_root
+    let repo_path = tmp.path().to_string_lossy().to_string();
+    init(Some(repo_path));
+    tmp.path().to_path_buf()
 }
 
 fn write_file(path: &Path, contents: &str) {
@@ -124,4 +122,28 @@ fn add_multiple_files_writes_all_entries_once() {
     assert!(paths.contains(&"a.txt".to_string()));
     assert!(paths.contains(&"b.txt".to_string()));
     assert_eq!(entries.len(), 2);
+}
+
+#[test]
+fn add_skips_ignored_files() {
+    // Purpose: ensure ignored files are not staged in the index
+    let tmp = TempDir::new().unwrap();
+    let root = init_repo(&tmp);
+
+    // write .nagignore and two files
+    std::fs::write(root.join(".nagignore"), "*.log\n").unwrap();
+    let tracked = root.join("main.rs");
+    let ignored = root.join("debug.log");
+
+    std::fs::write(&tracked, "fn main() {}").unwrap();
+    std::fs::write(&ignored, "temporary logs").unwrap();
+
+    add(&root).unwrap();
+
+    let index_path = root.join(".nag/index");
+    let index_bytes = read_file(&index_path.to_string_lossy()).unwrap();
+    let index_contents = String::from_utf8_lossy(&index_bytes);
+
+    assert!(index_contents.contains("main.rs"));
+    assert!(!index_contents.contains("debug.log"));
 }

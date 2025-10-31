@@ -137,3 +137,30 @@ fn get_all_diffs_combines_results() {
     assert!(diffs.get(&DiffType::Modified).unwrap().contains(&"mod.txt".to_string()));
     assert!(diffs.get(&DiffType::Added).unwrap().contains(&"add.txt".to_string()));
 }
+
+#[test]
+fn diff_excludes_ignored_files() {
+    // Purpose: ensure ignored files never appear in diff results
+    let tmp = TempDir::new().unwrap();
+    let root = init_repo(&tmp);
+
+    std::fs::write(root.join(".nagignore"), "*.tmp\n").unwrap();
+
+    let tracked = root.join("main.rs");
+    let ignored = root.join("build.tmp");
+
+    // commit tracked, leave ignored untracked
+    commit_helper(&tracked, "fn main() {}", "initial commit");
+
+    // modify both after commit
+    std::fs::write(&tracked, "fn main() { println!(\"hi\"); }").unwrap();
+    std::fs::write(&ignored, "debug build output").unwrap();
+
+    let diffs = get_all_diffs().unwrap();
+
+    for (_, files) in diffs {
+        for f in files {
+            assert!(!f.contains("build.tmp"));
+        }
+    }
+}
