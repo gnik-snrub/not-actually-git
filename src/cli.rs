@@ -16,7 +16,6 @@ use crate::commands::{
 };
 use crate::core::io::read_file;
 use crate::core::hash::hash;
-use crate::core::refs::read_ref;
 
 use std::path::Path;
 
