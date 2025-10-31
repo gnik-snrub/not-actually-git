@@ -3,6 +3,7 @@ use crate::core::io::read_file;
 use crate::core::index::read_index;
 use crate::core::repo::find_repo_root;
 use crate::core::tree::read_tree_to_index;
+use crate::core::ignore::should_ignore;
 
 use std::fs::read_dir;
 use std::collections::{ HashMap, HashSet };
@@ -68,6 +69,9 @@ pub fn diff_index_to_head() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
     for index_entry in index {
         let index_entry_oid = index_entry.0;
         let index_entry_path = index_entry.1;
+        if should_ignore(Path::new(&index_entry_path))? {
+            continue;
+        }
         if !wrk_paths.contains(&index_entry_path) {
             tracker.entry(DiffType::Deleted)
                 .or_default()
@@ -113,6 +117,9 @@ pub fn diff_working_to_index() -> std::io::Result<HashMap<DiffType, Vec<String>>
     for working_entry in working {
         let wrk_oid = working_entry.0;
         let wrk_path = working_entry.1;
+        if should_ignore(Path::new(&wrk_path))? {
+            continue;
+        }
         if let Some(index_oid) = index_map.get(&wrk_path) {
             if &wrk_oid != index_oid {
                 tracker.entry(DiffType::Modified)
@@ -129,6 +136,9 @@ pub fn diff_working_to_index() -> std::io::Result<HashMap<DiffType, Vec<String>>
 }
 
 fn walk(path: &Path, working: &mut Vec<(String, String)>, root: &Path) -> std::io::Result<()> {
+    if should_ignore(path)? {
+        return Ok(());
+    }
     if path.is_dir() {
         for child in read_dir(path)? {
             let dir = child.unwrap();

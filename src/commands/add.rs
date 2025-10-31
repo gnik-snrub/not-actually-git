@@ -5,6 +5,7 @@ use crate::core::io::{ read_file, write_object };
 use crate::core::index::{ read_index, write_index };
 use crate::core::hash::hash;
 use crate::core::repo::find_repo_root;
+use crate::core::ignore::should_ignore;
 
 pub fn add(path: &Path) -> std::io::Result<()> {
     let mut index = read_index()?;
@@ -20,6 +21,9 @@ fn walk(path: &Path, entries: &mut Vec<(String, String)>) -> std::io::Result<()>
         let rel_str = rel_path.to_string_lossy().to_string();
         entries.retain(|(_, p)| p != &rel_str);
         return Ok(())
+    }
+    if should_ignore(path)? {
+        return Ok(());
     }
     if path.is_dir() {
         for child in read_dir(path)? {

@@ -5,3 +5,4 @@ pub mod index;
 pub mod hash;
 pub mod diff;
 pub mod refs;
+pub mod ignore;
