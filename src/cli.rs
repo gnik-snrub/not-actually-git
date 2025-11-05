@@ -7,7 +7,7 @@ use crate::commands::{
     checkout::checkout,
     branch::{ branch, branch_list },
     restore::restore,
-    merge::ff_merge,
+    merge::merge,
     tag::{
         list_tags,
         delete_tag,
@@ -103,7 +103,7 @@ pub fn run_command() -> std::io::Result<()> {
             restore(restore_path)?;
         },
         Cli { command: Some(Command::Merge { target_branch })} => {
-            ff_merge(target_branch)?;
+            merge(target_branch)?;
         },
         Cli { command: Some(Command::Tag { tag_name, commit_name, message, delete })} => {
             if tag_name.is_none() {

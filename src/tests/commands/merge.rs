@@ -3,7 +3,7 @@ use std::fs;
 use crate::commands::{init::init, add::add, commit::commit, branch::branch, checkout::checkout};
 use crate::core::repo::find_repo_root;
 use crate::core::io::{read_file, write_file};
-use crate::commands::merge::ff_merge;
+use crate::commands::merge::merge;
 
 // helper
 fn init_test_repo(tmp: &TempDir) -> std::path::PathBuf {
@@ -35,7 +35,7 @@ fn ff_merge_succeeds_on_direct_descendant() {
     add(&file).unwrap();
     commit("sync before merge".to_string()).unwrap();
     checkout("main".to_string()).unwrap();
-    ff_merge("feature".to_string()).unwrap();
+    merge("feature".to_string()).unwrap();
 
     // both branches now share same oid
     let nag = find_repo_root().unwrap().join(".nag");
@@ -55,7 +55,7 @@ fn ff_merge_reports_already_up_to_date() {
     let file = root.join("a.txt");
     commit_helper(&file, "init", "base commit");
 
-    let result = ff_merge("main".to_string());
+    let result = merge("main".to_string());
     assert!(result.is_ok());
 }
 
@@ -74,7 +74,7 @@ fn ff_merge_fails_on_diverged_history() {
     checkout("main".to_string()).unwrap();
     commit_helper(&file, "main change", "main commit");
 
-    let result = ff_merge("alt".to_string());
+    let result = merge("alt".to_string());
     assert!(result.is_err());
 }
 
@@ -93,7 +93,7 @@ fn ff_merge_fails_on_dirty_working_directory() {
     checkout("main".to_string()).unwrap();
     fs::write(&file, "unsaved").unwrap(); // dirty
 
-    let result = ff_merge("dirty".to_string());
+    let result = merge("dirty".to_string());
     assert!(result.is_err());
     assert!(format!("{:?}", result.unwrap_err()).contains("not clean"));
 }
@@ -112,6 +112,6 @@ fn ff_merge_fails_on_detached_head() {
     let oid = String::from_utf8_lossy(&read_file(&nag.join("refs/heads/main").to_string_lossy()).unwrap()).trim().to_string();
     write_file(&oid.as_bytes().to_vec(), &head_path).unwrap();
 
-    let result = ff_merge("main".to_string());
+    let result = merge("main".to_string());
     assert!(result.is_err());
 }
