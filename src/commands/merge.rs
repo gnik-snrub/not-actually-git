@@ -8,9 +8,10 @@ use crate::core::io::read_file;
 use crate::core::repo::find_repo_root;
 use crate::commands::checkout::checkout;
 use crate::commands::status::status;
+use crate::core::tree::read_tree_to_index;
 
 use std::path::Path;
-use std::collections::HashSet;
+use std::collections::{ HashMap, HashSet };
 
 pub fn merge(target_branch: String) -> std::io::Result<()> {
     let head = resolve_head()?;
@@ -40,7 +41,7 @@ pub fn merge(target_branch: String) -> std::io::Result<()> {
             println!("Fast-forwarded '{}' to '{}' (new commit: {})", branch, target_branch, target_commit_oid);
         },
         Ancestor::Shared(ancestor_oid) => {
-            println!("3-way merge possible - not yet implemented");
+            three_way_merge(&oid, &target_commit_oid, &ancestor_oid)?;
         },
         Ancestor::NotFound => {
             return Err(std::io::Error::new(
@@ -71,6 +72,66 @@ fn fast_forward(branch: &String, target_commit_oid: &String) -> std::io::Result<
     }
     checkout(branch.clone())?;
 
+    Ok(())
+}
+
+fn three_way_merge(base_oid: &str, target_oid: &str, ancestor_oid: &str) -> std::io::Result<()> {
+    let base_index = read_tree_to_index(base_oid)?.into_iter().map(|(oid, path)| (path, oid)).collect::<HashMap<String, String>>();
+    let target_index = read_tree_to_index(target_oid)?.into_iter().map(|(oid, path)| (path, oid)).collect::<HashMap<String, String>>();
+    let ancestor_index = read_tree_to_index(ancestor_oid)?.into_iter().map(|(oid, path)| (path, oid)).collect::<HashMap<String, String>>();
+
+    let mut map: HashMap<String, (Option<String>, Option<String>, Option<String>)> = HashMap::new();
+    for (path, oid) in ancestor_index {
+        map.entry(path).or_insert((None,None,None)).0 = Some(oid);
+    }
+
+    for (path, oid) in base_index {
+        map.entry(path).or_insert((None,None,None)).1 = Some(oid);
+    }
+
+    for (path, oid) in target_index {
+        map.entry(path).or_insert((None,None,None)).2 = Some(oid);
+    }
+
+    let mut final_index: Vec<(String, Vec<String>)> = Vec::new();
+
+    for (path, (base_oid, target_oid, ancestor_oid)) in map {
+        match (ancestor_oid, base_oid, target_oid) {
+            (Some(a), Some(b), Some(t)) => {
+                if a == b && a == t {
+                    final_index.push((path, vec![a]));
+                } else if a == b && a != t {
+                    final_index.push((path, vec![t]));
+                } else if a != b && a == t {
+                    final_index.push((path, vec![b]));
+                } else if a != b && b == t {
+                    final_index.push((path, vec![b]));
+                } else if a != b && a != t && b != t {
+                    // Conflict, so keep both
+                    final_index.push((path, vec![b, t]));
+                }
+            },
+            (Some(_), Some(b), None) | (None, Some(b), None) => {
+                final_index.push((path, vec![b]));
+            },
+            (Some(_), None, Some(t)) | (None, None, Some(t)) => {
+                final_index.push((path, vec![t]));
+            },
+            (None, Some(b), Some(t)) => {
+                // Conflict, so keep both
+                if b == t {
+                    final_index.push((path, vec![b]));
+                } else {
+                    final_index.push((path, vec![b, t]));
+                }
+            },
+            _ => {
+                // Other matches don't matter, so nothing is kept
+            }
+        }
+    }
+
+    println!("3-way merge possible - not yet implemented");
     Ok(())
 }
 
@@ -135,7 +196,7 @@ fn collect_oids(object_dir: &Path, oid: &str) -> std::io::Result<HashSet<String>
 }
 
 fn find_shared_ancestor(object_dir: &Path, our_oid: &str, their_oids: &HashSet<String>) -> std::io::Result<Ancestor> {
-    let mut our_parent_oids: HashSet<String> = collect_oids(object_dir, our_oid)?;
+    let our_parent_oids: HashSet<String> = collect_oids(object_dir, our_oid)?;
 
     if our_parent_oids.is_empty() {
         return Ok(Ancestor::NotFound)
