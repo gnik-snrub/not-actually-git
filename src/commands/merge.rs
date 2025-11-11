@@ -4,7 +4,7 @@ use crate::core::refs::{
     update_ref,
     set_head_ref,
 };
-use crate::core::io::read_file;
+use crate::core::io::{ read_file, write_file };
 use crate::core::repo::find_repo_root;
 use crate::commands::checkout::checkout;
 use crate::commands::status::status;
@@ -118,10 +118,11 @@ fn three_way_merge(base_oid: &str, target_oid: &str, ancestor_oid: &str) -> std:
                 final_index.push((path, vec![t]));
             },
             (None, Some(b), Some(t)) => {
-                // Conflict, so keep both
                 if b == t {
+                    // Somehow, both branches independently made the same change
                     final_index.push((path, vec![b]));
                 } else {
+                    // Conflict, so keep both
                     final_index.push((path, vec![b, t]));
                 }
             },
@@ -131,7 +132,44 @@ fn three_way_merge(base_oid: &str, target_oid: &str, ancestor_oid: &str) -> std:
         }
     }
 
+    for (path, oids) in final_index {
+        if oids.len() > 1 {
+            build_conflict_file(&oids[0], &oids[1], &path)?;
+        } else {
+            let file_path = Path::new(&path);
+            write_file(&oids[0].as_bytes().to_vec(), &file_path)?;
+        }
+    }
+
     println!("3-way merge possible - not yet implemented");
+    Ok(())
+}
+
+fn build_conflict_file(base_oid: &str, target_oid: &str, conflict_file: &str) -> std::io::Result<()> {
+    let object_dir = find_repo_root()?.join(".nag").join("objects");
+    let base_object_path = object_dir.join(base_oid);
+    let target_object_path = object_dir.join(target_oid);
+
+    let base_object = read_file(&base_object_path.to_string_lossy())?;
+    let target_object = read_file(&target_object_path.to_string_lossy())?;
+    let base_object_str = String::from_utf8_lossy(&base_object);
+    let target_object_str = String::from_utf8_lossy(&target_object);
+
+    let mut str_buf = String::new();
+    let header = format!("<<< Base <<<\n");
+    let mid_line = format!("==============\n");
+    let footer = format!(">>> Target >>>\n");
+
+    str_buf.push_str(&header);
+    str_buf.push_str(&base_object_str);
+    str_buf.push_str(&mid_line);
+    str_buf.push_str(&target_object_str);
+    str_buf.push_str(&footer);
+
+    let conflict_path = Path::new(conflict_file);
+
+    write_file(&str_buf.as_bytes().to_vec(), &conflict_path)?;
+
     Ok(())
 }
 
