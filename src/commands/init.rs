@@ -31,6 +31,7 @@ pub fn init(input_path: Option<String>) {
 
     let _ = create_dir(&canon_path);
     let _ = create_dir(&obj_path);
+    let _ = write(obj_path.join("empty"), b"");
     let _ = create_dir_all(&head_dir_path);
     let _ = write(main_bootstrap_path, b"");
     let _ = write(head_file_path, b"ref: refs/heads/main\n");
