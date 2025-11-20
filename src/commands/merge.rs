@@ -6,14 +6,22 @@ use crate::core::refs::{
 };
 use crate::core::io::{ read_file, write_file };
 use crate::core::repo::find_repo_root;
+use crate::core::tree::read_tree_to_index;
+use crate::core::index::{ write_index, IndexEntry, EntryType };
 use crate::commands::checkout::checkout;
 use crate::commands::status::status;
-use crate::core::tree::read_tree_to_index;
 
 use std::path::Path;
 use std::collections::{ HashMap, HashSet };
 
 pub fn merge(target_branch: String) -> std::io::Result<()> {
+    if status(false)?.len() > 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Cannot merge: working directory not clean"),
+        ));
+    }
+
     let head = resolve_head()?;
 
     let (Some(branch), oid) = head else {
@@ -26,8 +34,8 @@ pub fn merge(target_branch: String) -> std::io::Result<()> {
     let target_commit_oid = read_ref(&target_branch)?;
 
     if oid == target_commit_oid {
-        println!("Already up to date");
-        return Ok(())
+        println!("Already up-to-date");
+        return Ok(());
     }
 
     let nag_dir = find_repo_root()?.join(".nag");
@@ -40,8 +48,12 @@ pub fn merge(target_branch: String) -> std::io::Result<()> {
             fast_forward(&branch, &target_commit_oid)?;
             println!("Fast-forwarded '{}' to '{}' (new commit: {})", branch, target_branch, target_commit_oid);
         },
+        Ancestor::DirectReverse => {
+            println!("Already up-to-date");
+        },
         Ancestor::Shared(ancestor_oid) => {
-            three_way_merge(&oid, &target_commit_oid, &ancestor_oid)?;
+            let output = three_way_merge(&oid, &target_commit_oid, &ancestor_oid)?;
+            println!("{}", output);
         },
         Ancestor::NotFound => {
             return Err(std::io::Error::new(
@@ -55,75 +67,115 @@ pub fn merge(target_branch: String) -> std::io::Result<()> {
 }
 
 fn fast_forward(branch: &String, target_commit_oid: &String) -> std::io::Result<()> {
-    if status(false)?.len() > 0 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Cannot fast-forward: working directory not clean"),
-        ));
-    }
-
     update_ref(&branch, &target_commit_oid)?;
     set_head_ref(&branch)?;
-
-    let current_oid = read_ref(&branch)?;
-    if &current_oid == target_commit_oid {
-        println!("Already on up-to-date tree, no checkout needed");
-        return Ok(());
-    }
-    checkout(branch.clone())?;
 
     Ok(())
 }
 
-fn three_way_merge(base_oid: &str, target_oid: &str, ancestor_oid: &str) -> std::io::Result<()> {
-    let base_index = read_tree_to_index(base_oid)?.into_iter().map(|(oid, path)| (path, oid)).collect::<HashMap<String, String>>();
-    let target_index = read_tree_to_index(target_oid)?.into_iter().map(|(oid, path)| (path, oid)).collect::<HashMap<String, String>>();
-    let ancestor_index = read_tree_to_index(ancestor_oid)?.into_iter().map(|(oid, path)| (path, oid)).collect::<HashMap<String, String>>();
+fn extract_tree_oid(commit_str: &str) -> std::io::Result<String> {
+    let nag_dir = find_repo_root()?.join(".nag");
+    let tree_oid = commit_str.lines().next().unwrap();
+    let tree_path = nag_dir.join("objects").join(tree_oid.trim());
+    if !tree_path.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Commit\'s tree '{}' not found", tree_oid),
+        ));
+    }
+    let tree_contents = read_file(&tree_path.to_string_lossy())?;
+    let tree_str = String::from_utf8_lossy(&tree_contents);
+    let first_line = tree_str.lines().next().unwrap();
+    let tree_oid = first_line.strip_prefix("tree ").unwrap().trim();
+    Ok(tree_oid.trim().to_string())
+}
 
-    let mut map: HashMap<String, (Option<String>, Option<String>, Option<String>)> = HashMap::new();
-    for (path, oid) in ancestor_index {
-        map.entry(path).or_insert((None,None,None)).0 = Some(oid);
+fn three_way_merge(base_oid: &str, target_oid: &str, ancestor_oid: &str) -> std::io::Result<String> {
+    let base_tree = extract_tree_oid(base_oid)?;
+    let target_tree = extract_tree_oid(target_oid)?;
+    let ancestor_tree = extract_tree_oid(ancestor_oid)?;
+
+    let base_index = read_tree_to_index(&base_tree)?.into_iter().map(|entry| (entry.path.clone(), entry)).collect::<HashMap<String, IndexEntry>>();
+    let target_index = read_tree_to_index(&target_tree)?.into_iter().map(|entry| (entry.path.clone(), entry)).collect::<HashMap<String, IndexEntry>>();
+    let ancestor_index = read_tree_to_index(&ancestor_tree)?.into_iter().map(|entry| (entry.path.clone(), entry)).collect::<HashMap<String, IndexEntry>>();
+
+    let mut map: HashMap<String, (Option<IndexEntry>, Option<IndexEntry>, Option<IndexEntry>)> = HashMap::new();
+    for (path, entry) in ancestor_index {
+        map.entry(path).or_insert((None,None,None)).0 = Some(entry);
     }
 
-    for (path, oid) in base_index {
-        map.entry(path).or_insert((None,None,None)).1 = Some(oid);
+    for (path, entry) in base_index {
+        map.entry(path).or_insert((None,None,None)).1 = Some(entry);
     }
 
-    for (path, oid) in target_index {
-        map.entry(path).or_insert((None,None,None)).2 = Some(oid);
+    for (path, entry) in target_index {
+        map.entry(path).or_insert((None,None,None)).2 = Some(entry);
     }
 
-    let mut final_index: Vec<(String, Vec<String>)> = Vec::new();
+    let mut final_index: Vec<IndexEntry> = Vec::new();
 
-    for (path, (base_oid, target_oid, ancestor_oid)) in map {
-        match (ancestor_oid, base_oid, target_oid) {
+    for (_path, (a_entry, b_entry, t_entry)) in map {
+        let is_dir =
+            a_entry.clone().map(|e| e.mode == "040000").unwrap_or(false) ||
+            b_entry.clone().map(|e| e.mode == "040000").unwrap_or(false) ||
+            t_entry.clone().map(|e| e.mode == "040000").unwrap_or(false);
+
+        if is_dir {
+            continue; // directories never get index entries
+        }
+        match (a_entry, b_entry, t_entry) {
             (Some(a), Some(b), Some(t)) => {
-                if a == b && a == t {
-                    final_index.push((path, vec![a]));
-                } else if a == b && a != t {
-                    final_index.push((path, vec![t]));
-                } else if a != b && a == t {
-                    final_index.push((path, vec![b]));
-                } else if a != b && b == t {
-                    final_index.push((path, vec![b]));
-                } else if a != b && a != t && b != t {
+                let aoid = a.oids[0].clone();
+                let boid = b.oids[0].clone();
+                let toid = t.oids[0].clone();
+                if aoid == boid && aoid == toid {
+                    final_index.push(quick_entry(&a, &vec![aoid]));
+                } else if aoid == boid && aoid != toid {
+                    final_index.push(quick_entry(&b, &vec![toid]));
+                } else if aoid != boid && aoid == toid {
+                    final_index.push(quick_entry(&b, &vec![boid]));
+                } else if aoid != boid && boid == toid {
+                    final_index.push(quick_entry(&b, &vec![boid]));
+                } else if aoid != boid && aoid != toid && boid != toid {
                     // Conflict, so keep both
-                    final_index.push((path, vec![b, t]));
+                    final_index.push(quick_entry(&b, &vec![boid, toid]));
                 }
             },
-            (Some(_), Some(b), None) | (None, Some(b), None) => {
-                final_index.push((path, vec![b]));
+            (Some(a), Some(b), None) => {
+                let boid = b.oids[0].clone();
+                let aoid = a.oids[0].clone();
+                if aoid == boid {
+                    // Clean delete
+                } else {
+                    final_index.push(quick_entry(&b, &vec![boid, "empty".to_string()]));
+                }
             },
-            (Some(_), None, Some(t)) | (None, None, Some(t)) => {
-                final_index.push((path, vec![t]));
+            (None, Some(b), None) => {
+                let boid = b.oids[0].clone();
+                final_index.push(quick_entry(&b, &vec![boid]));
+            },
+            (Some(a), None, Some(t)) => {
+                let toid = t.oids[0].clone();
+                let aoid = a.oids[0].clone();
+                if aoid == toid {
+                    // Clean delete
+                } else {
+                    final_index.push(quick_entry(&t, &vec![toid, "empty".to_string()]));
+                }
+            },
+            (None, None, Some(t)) => {
+                let toid = t.oids[0].clone();
+                final_index.push(quick_entry(&t, &vec![toid]));
             },
             (None, Some(b), Some(t)) => {
-                if b == t {
+                let boid = b.oids[0].clone();
+                let toid = t.oids[0].clone();
+                if boid == toid {
                     // Somehow, both branches independently made the same change
-                    final_index.push((path, vec![b]));
+                    final_index.push(quick_entry(&b, &vec![boid]));
                 } else {
                     // Conflict, so keep both
-                    final_index.push((path, vec![b, t]));
+                    final_index.push(quick_entry(&b, &vec![boid, toid]));
                 }
             },
             _ => {
@@ -132,17 +184,49 @@ fn three_way_merge(base_oid: &str, target_oid: &str, ancestor_oid: &str) -> std:
         }
     }
 
-    for (path, oids) in final_index {
-        if oids.len() > 1 {
-            build_conflict_file(&oids[0], &oids[1], &path)?;
+    let repo_root = find_repo_root()?;
+    for entry in &final_index {
+        if entry.oids.len() > 1 {
+            build_conflict_file(&entry.oids[0], &entry.oids[1], &entry.path)?;
         } else {
-            let file_path = Path::new(&path);
-            write_file(&oids[0].as_bytes().to_vec(), &file_path)?;
+            let full_path = repo_root.join(&entry.path);
+            let obj_path = repo_root.join(".nag/objects").join(&entry.oids[0]);
+            let contents = read_file(obj_path.to_str().unwrap())?;
+
+            if let Some(parent) = full_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            write_file(&contents, &full_path)?;
         }
     }
 
-    println!("3-way merge possible - not yet implemented");
-    Ok(())
+    write_index(&final_index)?;
+
+    let mut summary_buf = String::new();
+    summary_buf.push_str("Merge results:\n");
+    for entry in &final_index {
+        if entry.entry_type == EntryType::C {
+            summary_buf.push_str(&format!("\tclean: {}\n", entry.path));
+        } else {
+            summary_buf.push_str(&format!("\tconflict: {}\n", entry.path));
+        }
+    }
+    let has_conflicts = final_index.iter().any(|e| e.entry_type == EntryType::X);
+
+    if has_conflicts {
+        Err(std::io::Error::new(std::io::ErrorKind::Other, "Merge conflicts"))
+    } else {
+        Ok(summary_buf)
+    }
+}
+
+fn quick_entry(existing_entry: &IndexEntry, oids: &Vec<String>) -> IndexEntry {
+    IndexEntry {
+        entry_type: if oids.len() > 1 { EntryType::X } else { EntryType::C },
+        path: existing_entry.path.clone(),
+        mode: existing_entry.mode.clone(),
+        oids: oids.clone(),
+    }
 }
 
 fn build_conflict_file(base_oid: &str, target_oid: &str, conflict_file: &str) -> std::io::Result<()> {
@@ -176,23 +260,34 @@ fn build_conflict_file(base_oid: &str, target_oid: &str, conflict_file: &str) ->
 #[derive(Debug, PartialEq)]
 enum Ancestor {
     Direct,
+    DirectReverse,
     Shared(String),
     NotFound,
 }
 
 fn find_ancestor_type(object_dir: &Path, base_oid: &str, target_oid: &str) -> std::io::Result<Ancestor> {
-    let mut target_parent_oids: HashSet<String> = HashSet::new();
+    let mut target_parent_oids = HashSet::new();
     collect_all_ancestors(object_dir, target_oid, &mut target_parent_oids)?;
 
-    if target_parent_oids.is_empty() {
-        return Ok(Ancestor::NotFound)
+    let mut base_parent_oids = HashSet::new();
+    collect_all_ancestors(object_dir, base_oid, &mut base_parent_oids)?;
+
+    // Shared
+    if let Some(shared) = base_parent_oids.intersection(&target_parent_oids).next() {
+        return Ok(Ancestor::Shared(shared.clone()));
     }
 
-    if target_parent_oids.contains(&base_oid.to_string()) {
-        return Ok(Ancestor::Direct)
+    // Direct
+    if target_parent_oids.contains(base_oid) {
+        return Ok(Ancestor::Direct);
     }
 
-    return find_shared_ancestor(object_dir, base_oid, &target_parent_oids);
+    // DirectReverse
+    if base_parent_oids.contains(target_oid) {
+        return Ok(Ancestor::DirectReverse);
+    }
+
+    Ok(Ancestor::NotFound)
 }
 
 fn collect_all_ancestors(object_dir: &Path, target_oid: &str, parent_oids: &mut HashSet<String>) -> std::io::Result<()> {
@@ -231,22 +326,4 @@ fn collect_oids(object_dir: &Path, oid: &str) -> std::io::Result<HashSet<String>
         .collect::<HashSet<String>>();
 
     Ok(new_parent_oids)
-}
-
-fn find_shared_ancestor(object_dir: &Path, our_oid: &str, their_oids: &HashSet<String>) -> std::io::Result<Ancestor> {
-    let our_parent_oids: HashSet<String> = collect_oids(object_dir, our_oid)?;
-
-    if our_parent_oids.is_empty() {
-        return Ok(Ancestor::NotFound)
-    }
-
-    for parent_oid in our_parent_oids {
-        if their_oids.contains(&parent_oid) {
-            return Ok(Ancestor::Shared(parent_oid))
-        } else {
-            return find_shared_ancestor(object_dir, &parent_oid, their_oids)
-        }
-    }
-
-    Ok(Ancestor::NotFound)
 }
