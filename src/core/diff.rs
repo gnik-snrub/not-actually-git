@@ -1,6 +1,6 @@
 use crate::core::hash::hash;
 use crate::core::io::read_file;
-use crate::core::index::read_index;
+use crate::core::index::{ read_index, EntryType };
 use crate::core::repo::find_repo_root;
 use crate::core::tree::read_tree_to_index;
 use crate::core::ignore::should_ignore;
@@ -33,8 +33,10 @@ pub fn diff_index_to_head() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
     walk(&root, &mut working, &root)?;
 
     let index_map: HashMap<String, String> = index.iter()
-        .map(|(oid, p)| (p.clone(), oid.clone()))
-        .collect();
+        .filter(|entry| entry.entry_type == EntryType::C)
+        .map(|entry| (entry.path.clone(), entry.oids[0].clone()))
+        .collect::<HashMap::<String, String>>();
+
     let wrk_paths: HashSet<_> = working.iter().map(|(_, p)| p.clone()).collect();
 
     let head_path = root.join(".nag").join("HEAD");
@@ -45,12 +47,12 @@ pub fn diff_index_to_head() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
     let branch_path_fragment = target.strip_prefix("ref: ").unwrap_or(target);
     let branch_path = root.join(".nag").join(branch_path_fragment);
     let branch_contents = read_file(&branch_path.to_string_lossy())?;
-    let branch_oid = String::from_utf8_lossy(&branch_contents);
+    let branch_oid = String::from_utf8_lossy(&branch_contents).trim().to_string();
 
     let head_index_map = if branch_oid.trim().is_empty() {
         HashMap::new()
     } else {
-        let commit_path = root.join(".nag").join("objects").join(format!("{}", branch_oid));
+        let commit_path = root.join(".nag").join("objects").join(&branch_oid);
         let commit_contents = read_file(&commit_path.to_string_lossy())?;
         let commit_str = String::from_utf8_lossy(&commit_contents);
 
@@ -62,31 +64,29 @@ pub fn diff_index_to_head() -> std::io::Result<HashMap<DiffType, Vec<String>>> {
         let head_index = read_tree_to_index(&tree_oid)?;
 
         head_index.into_iter()
-            .map(|(oid, p)| (p.clone(), oid.clone()))
+            .map(|entry| (entry.path.clone(), entry.oids[0].clone()))
             .collect()
     };
 
     for index_entry in index {
-        let index_entry_oid = index_entry.0;
-        let index_entry_path = index_entry.1;
-        if should_ignore(Path::new(&index_entry_path))? {
+        if should_ignore(Path::new(&index_entry.path))? {
             continue;
         }
-        if !wrk_paths.contains(&index_entry_path) {
+        if !wrk_paths.contains(&index_entry.path) {
             tracker.entry(DiffType::Deleted)
                 .or_default()
-                .push(index_entry_path.clone());
+                .push(index_entry.path.clone());
         }
-        if let Some(head_entry_oid) = head_index_map.get(&index_entry_path) {
-            if *head_entry_oid != index_entry_oid {
+        if let Some(head_entry_oid) = head_index_map.get(&index_entry.path) {
+            if *head_entry_oid != index_entry.oids[0] {
                 tracker.entry(DiffType::Staged)
                     .or_default()
-                    .push(index_entry_path);
+                    .push(index_entry.path);
             }
         } else {
             tracker.entry(DiffType::Added)
                 .or_default()
-                .push(index_entry_path);
+                .push(index_entry.path);
         }
     }
 
@@ -111,8 +111,9 @@ pub fn diff_working_to_index() -> std::io::Result<HashMap<DiffType, Vec<String>>
     walk(&root, &mut working, &root)?;
 
     let index_map: HashMap<String, String> = index.iter()
-        .map(|(oid, p)| (p.clone(), oid.clone()))
-        .collect();
+        .filter(|entry| entry.entry_type == EntryType::C)
+        .map(|entry| (entry.path.clone(), entry.oids[0].clone()))
+        .collect::<HashMap::<String, String>>();
 
     for working_entry in working {
         let wrk_oid = working_entry.0;

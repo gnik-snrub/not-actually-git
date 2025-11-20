@@ -1,8 +1,10 @@
 use std::path::Path;
 use std::fs::read_dir;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use crate::core::io::{ read_file, write_object };
-use crate::core::index::{ read_index, write_index };
+use crate::core::index::{ read_index, write_index, IndexEntry, EntryType };
 use crate::core::hash::hash;
 use crate::core::repo::find_repo_root;
 use crate::core::ignore::should_ignore;
@@ -14,12 +16,12 @@ pub fn add(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn walk(path: &Path, entries: &mut Vec<(String, String)>) -> std::io::Result<()> {
+fn walk(path: &Path, entries: &mut Vec<IndexEntry>) -> std::io::Result<()> {
     if !path.exists() {
         let repo_root = find_repo_root()?;
         let rel_path = path.strip_prefix(&repo_root).unwrap_or(path);
         let rel_str = rel_path.to_string_lossy().to_string();
-        entries.retain(|(_, p)| p != &rel_str);
+        entries.retain(|entry| &entry.path != &rel_str);
         return Ok(())
     }
     if should_ignore(path)? {
@@ -45,20 +47,47 @@ fn walk(path: &Path, entries: &mut Vec<(String, String)>) -> std::io::Result<()>
         let file = read_file(&abs_path.to_string_lossy())?;
         let blob = hash(&file);
         write_object(&file, &blob)?;
-        update_or_insert(blob, rel_str, entries);
+        update_or_insert(blob, rel_str, entries)?;
     }
     Ok(())
 }
 
-fn update_or_insert(oid: String, path: String, entries: &mut Vec<(String, String)>) {
+fn update_or_insert(oid: String, path: String, entries: &mut Vec<IndexEntry>) -> std::io::Result<()> {
     let mut found = false;
     for entry in &mut *entries {
-        if entry.1 == path {
-            entry.0 = oid.clone();
+        if entry.path == path {
+            entry.oids = vec![oid.clone()];     // overwrite OID always
             found = true;
+            break;
         }
     }
     if !found {
-        entries.push((oid, path));
+        let real_path = Path::new(&path);
+        let mode = if real_path.is_dir() {
+            "040000".to_string()
+        } else {
+            #[cfg(unix)]
+            {
+                if real_path.metadata()?.permissions().mode() & 0o111 != 0 {
+                    "100755".to_string()
+                } else {
+                    "100644".to_string()
+                }
+            }
+            #[cfg(windows)]
+            {
+                "100644".to_string()
+            }
+        };
+
+        let new_entry = IndexEntry {
+            entry_type: EntryType::C,
+            path: path,
+            mode: mode,
+            oids: vec![oid],
+        };
+        entries.push(new_entry);
     }
+
+    Ok(())
 }

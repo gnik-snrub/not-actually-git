@@ -1,14 +1,18 @@
 use std::fs;
 use std::fs::DirEntry;
-use std::path::{PathBuf, Path};
+use std::path::{PathBuf};
 use std::os::unix::fs::PermissionsExt;
 use std::collections::HashMap;
+
 use crate::core::hash::hash;
 use crate::core::io::{ write_object, read_file };
 use crate::core::repo::find_repo_root;
+use crate::core::index::{ IndexEntry, EntryType };
 
-fn format_entry(perms: &str, name: &str, oid: &str) -> String {
+fn format_entry(entry_type: &EntryType, perms: &str, name: &str, oid: &str) -> String {
     let mut entry = String::new();
+    entry.push_str(&entry_type.to_string());
+    entry.push('\t');
     entry.push_str(perms);
     entry.push('\t');
     entry.push_str(name);
@@ -59,13 +63,13 @@ pub fn write_tree(root_path: &PathBuf) -> std::io::Result<String> {
             if p_type.is_file() {
                 let data = read_file(&p.path().display().to_string())?;
                 let blob = hash(&data);
-                let entry = format_entry(perms, &name_str, &blob);
+                let entry = format_entry(&EntryType::C, perms, &name_str, &blob);
                 string_buf.push_str(&entry);
             } else if p_type.is_dir() {
                 let dir_path = write_tree(&p.path());
                 match dir_path {
                     Ok(sub_dirs) => {
-                        let entry = format_entry(perms, &name_str, &sub_dirs);
+                        let entry = format_entry(&EntryType::C, perms, &name_str, &sub_dirs);
                         string_buf.push_str(&entry);
                     },
                     Err(e) => {
@@ -81,25 +85,34 @@ pub fn write_tree(root_path: &PathBuf) -> std::io::Result<String> {
     Ok(tree_hash)
 }
 
-pub fn write_tree_from_index(index: &Vec<(String, String)>) -> std::io::Result<String> {
-    let mut groups: HashMap<String, Vec<(String, String)>> = HashMap::new();
+pub fn write_tree_from_index(index: &Vec<IndexEntry>) -> std::io::Result<String> {
+    let mut groups: HashMap<String, Vec<IndexEntry>> = HashMap::new();
 
-    for entry in index {
-        let oid_str = &entry.0;
-        let path_str = &entry.1;
-        let p = Path::new(&path_str);
+    let filtered_index = index.iter().filter(|entry| entry.entry_type == EntryType::C).collect::<Vec<&IndexEntry>>();
 
-        if let Some(first) = p.components().next() {
-            let rest = p.strip_prefix(first.as_os_str()).unwrap_or(Path::new(""));
-            if rest.as_os_str().is_empty() {
-                groups.entry("".to_string())
-                    .or_default()
-                    .push((oid_str.clone(), first.as_os_str().to_string_lossy().to_string()));
-            } else {
-                groups.entry(first.as_os_str().to_string_lossy().to_string())
-                    .or_default()
-                    .push((oid_str.clone(), rest.to_string_lossy().to_string()));
-            }
+    for entry in filtered_index {
+        let oid = &entry.oids[0];
+
+        if let Some((first, rest)) = entry.path.split_once('/') {
+            let e = IndexEntry {
+                entry_type: entry.entry_type.clone(),
+                path: rest.to_string(),
+                mode: entry.mode.clone(),
+                oids: vec![oid.clone()],
+            };
+            groups.entry(first.to_string())
+                .or_default()
+                .push(e);
+        } else {
+            let e = IndexEntry {
+                entry_type: entry.entry_type.clone(),
+                path: entry.path.to_string(),
+                mode: entry.mode.clone(),
+                oids: vec![oid.clone()],
+            };
+            groups.entry("".to_string())
+                .or_default()
+                .push(e);
         }
     }
 
@@ -109,27 +122,23 @@ pub fn write_tree_from_index(index: &Vec<(String, String)>) -> std::io::Result<S
         let repo_root = find_repo_root()?; // project root
         let objects_dir = repo_root.join(".nag").join("objects");
 
-        for (oid, path) in files {
-            let obj_path = objects_dir.join(&oid);
+        for item in files {
+            let obj_path = objects_dir.join(&item.oids[0]);
             if !obj_path.exists() {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("missing blob object for {}", path),
+                    format!("missing blob object for {}", &item.path),
                 ));
             }
 
-            // TODO Refactor Index to include permissions
-            // TODO Include dynamic permissions from get_perms
-            // ...I really should have done that from the start
-
-            let entry = format_entry("100644", &path, &oid);
+            let entry = format_entry(&item.entry_type, item.mode.as_str(), &item.path, &item.oids[0]);
             str_buf.push_str(&entry);
         }
     }
 
     for group in groups.iter() {
         let sub_dir = write_tree_from_index(group.1)?;
-        let entry = format_entry("040000", &group.0, &sub_dir);
+        let entry = format_entry(&EntryType::C, "040000", &group.0, &sub_dir);
         str_buf.push_str(&entry);
     }
 
@@ -139,7 +148,7 @@ pub fn write_tree_from_index(index: &Vec<(String, String)>) -> std::io::Result<S
     Ok(tree_hash)
 }
 
-pub fn read_tree_to_index(tree_oid: &str) -> std::io::Result<Vec<(String, String)>> {
+pub fn read_tree_to_index(tree_oid: &str) -> std::io::Result<Vec<IndexEntry>> {
     let mut entries = vec![];
 
     read_t_to_i_walk(tree_oid, &mut entries)?;
@@ -147,7 +156,7 @@ pub fn read_tree_to_index(tree_oid: &str) -> std::io::Result<Vec<(String, String
     Ok(entries)
 }
 
-fn read_t_to_i_walk(tree_oid: &str, entries: &mut Vec<(String, String)>) -> std::io::Result<()> {
+fn read_t_to_i_walk(tree_oid: &str, entries: &mut Vec<IndexEntry>) -> std::io::Result<()> {
     let tree_str = find_repo_root()?.join(".nag").join("objects").join(tree_oid);
     let tree_bytes = read_file(&tree_str.to_string_lossy())?;
     let tree_str = String::from_utf8_lossy(&tree_bytes);
@@ -156,23 +165,48 @@ fn read_t_to_i_walk(tree_oid: &str, entries: &mut Vec<(String, String)>) -> std:
         let parts: Vec<&str> = line.split('\t').collect();
 
         match parts[0] {
-            "100644" | "100755" => { // regular file / exec file
-                let path = parts[1].to_string();
-                let oid = parts[2].to_string();
-                entries.push((oid, path));
-            }
-            "040000" => { // directory
-                let dirname = parts[1];
-                let subtree_oid = parts[2];
-                let mut subtree_entries = vec![];
-                read_t_to_i_walk(subtree_oid, &mut subtree_entries)?;
-                for (oid, path) in subtree_entries {
-                    entries.push((oid, format!("{}/{}", dirname, path)));
+            "C" => {
+                match parts[1] {
+                    "100644" | "100755" => { // regular file / exec file
+                        let path = parts[2].to_string();
+                        let oid = parts[3].to_string();
+                        entries.push(IndexEntry {
+                            entry_type: EntryType::C,
+                            path: path,
+                            mode: parts[1].to_string(),
+                            oids: vec![oid],
+                        });
+                    }
+                    "040000" => { // directory
+                        let dirname = parts[2];
+                        let subtree_oid = parts[3];
+                        let mut subtree_entries = vec![];
+                        read_t_to_i_walk(subtree_oid, &mut subtree_entries)?;
+                        for mut entry in subtree_entries {
+                            entry.path = format!("{}/{}", dirname, entry.path);
+                            entries.push(entry);
+                        }
+                    }
+                    _ => {
+                        /*
+                        Can't decide to return an error or just ignore on symlinks
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Invalid entry mode",
+                        ));
+                        */
+                    }
                 }
-            }
+            },
+            "X" => {
+                // Conflicted entries are ignored for now
+            },
             _ => {
-                // optionally: return an error or just ignore unknown modes
-            }
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Invalid entry type",
+                ));
+            },
         }
     }
 

@@ -65,8 +65,8 @@ pub fn checkout(branch: String) -> std::io::Result<()> {
 
     let index = read_tree_to_index(tree_oid)?;
     for entry in &index {
-        let oid = entry.0.clone();
-        let path = Path::new(&entry.1);
+        let oid = entry.oids[0].clone();
+        let path = Path::new(&entry.path);
 
         if let Some(parent) = path.parent() { 
             create_dir_all(parent)?;
