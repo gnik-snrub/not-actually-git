@@ -5,7 +5,6 @@ use tempfile::TempDir;
 use crate::core::index::read_index;
 use crate::commands::add::add;
 use crate::commands::init::init;
-use crate::core::io::read_file;
 
 // Helper: initialize fake repo with .nag structure and cd into it
 fn init_repo(tmp: &TempDir) -> std::path::PathBuf {
@@ -30,13 +29,15 @@ fn add_single_file_creates_blob_and_index_entry() {
 
     add(&file_path).unwrap();
 
-    // Index should contain the file (as relative path)
     let entries = read_index().unwrap();
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].1, "hello.txt");
 
-    // Blob should exist on disk
-    let oid = &entries[0].0;
+    let e = &entries[0];
+    assert_eq!(e.path, "hello.txt");
+    assert_eq!(e.entry_type, crate::core::index::EntryType::C);
+    assert_eq!(e.oids.len(), 1);
+
+    let oid = &e.oids[0];
     let blob_path = tmp.path().join(".nag/objects").join(oid);
     assert!(blob_path.exists());
 }
@@ -55,7 +56,7 @@ fn add_directory_recurses_into_children() {
     add(&dir).unwrap();
 
     let entries = read_index().unwrap();
-    let paths: Vec<_> = entries.iter().map(|(_, p)| p.clone()).collect();
+    let paths: Vec<_> = entries.iter().map(|e| e.path.clone()).collect();
 
     assert!(paths.contains(&"src/a.rs".to_string()));
     assert!(paths.contains(&"src/b.rs".to_string()));
@@ -72,18 +73,17 @@ fn add_updates_oid_for_modified_file() {
     add(&file_path).unwrap();
     let entries_v1 = read_index().unwrap();
     let oid_v1 = entries_v1.iter()
-        .find(|(_, p)| p == "hello.txt")
-        .unwrap().0.clone();
+        .find(|e| e.path == "hello.txt")
+        .unwrap().oids[0].clone();
 
-    // Modify file and add again
     write_file(&file_path, "v2");
     add(&file_path).unwrap();
     let entries_v2 = read_index().unwrap();
     let oid_v2 = entries_v2.iter()
-        .find(|(_, p)| p == "hello.txt")
-        .unwrap().0.clone();
+        .find(|e| e.path == "hello.txt")
+        .unwrap().oids[0].clone();
 
-    assert_ne!(oid_v1, oid_v2, "OID should change when file content changes");
+    assert_ne!(oid_v1, oid_v2);
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn add_is_idempotent_for_unmodified_file() {
     add(&file_path).unwrap();
     let entries_second = read_index().unwrap();
 
-    assert_eq!(entries_first, entries_second, "Index should not duplicate entries");
+    assert_eq!(entries_first, entries_second);
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn add_multiple_files_writes_all_entries_once() {
     add(&file2).unwrap();
 
     let entries = read_index().unwrap();
-    let paths: Vec<_> = entries.iter().map(|(_, p)| p.clone()).collect();
+    let paths: Vec<_> = entries.iter().map(|e| e.path.clone()).collect();
 
     assert!(paths.contains(&"a.txt".to_string()));
     assert!(paths.contains(&"b.txt".to_string()));
@@ -126,24 +126,21 @@ fn add_multiple_files_writes_all_entries_once() {
 
 #[test]
 fn add_skips_ignored_files() {
-    // Purpose: ensure ignored files are not staged in the index
     let tmp = TempDir::new().unwrap();
     let root = init_repo(&tmp);
 
-    // write .nagignore and two files
-    std::fs::write(root.join(".nagignore"), "*.log\n").unwrap();
+    fs::write(root.join(".nagignore"), "*.log\n").unwrap();
     let tracked = root.join("main.rs");
     let ignored = root.join("debug.log");
 
-    std::fs::write(&tracked, "fn main() {}").unwrap();
-    std::fs::write(&ignored, "temporary logs").unwrap();
+    fs::write(&tracked, "fn main() {}").unwrap();
+    fs::write(&ignored, "temporary logs").unwrap();
 
     add(&root).unwrap();
 
-    let index_path = root.join(".nag/index");
-    let index_bytes = read_file(&index_path.to_string_lossy()).unwrap();
-    let index_contents = String::from_utf8_lossy(&index_bytes);
+    let entries = read_index().unwrap();
+    let paths: Vec<_> = entries.iter().map(|e| e.path.clone()).collect();
 
-    assert!(index_contents.contains("main.rs"));
-    assert!(!index_contents.contains("debug.log"));
+    assert!(paths.contains(&"main.rs".to_string()));
+    assert!(!paths.contains(&"debug.log".to_string()));
 }
