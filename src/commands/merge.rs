@@ -8,7 +8,6 @@ use crate::core::io::{ read_file, write_file };
 use crate::core::repo::find_repo_root;
 use crate::core::tree::read_tree_to_index;
 use crate::core::index::{ write_index, IndexEntry, EntryType };
-use crate::commands::checkout::checkout;
 use crate::commands::status::status;
 
 use std::path::Path;
