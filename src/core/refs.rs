@@ -1,7 +1,7 @@
 use crate::core::repo::find_repo_root;
 use crate::core::io::{ read_file, write_file };
 
-use std::path::Path;
+use std::path::{ Path, PathBuf };
 use std::fs::read_dir;
 
 pub fn resolve_head() -> std::io::Result<(Option<String>, String)> {
@@ -59,6 +59,18 @@ pub fn update_ref(name: &str, oid: &str) -> std::io::Result<()> {
     write_file(&oid.as_bytes().to_vec(), &full_path)?;
 
     Ok(())
+}
+
+pub fn get_ref_path(ref_name: &str) -> std::io::Result<PathBuf> {
+    let ref_name_full = if !ref_name.starts_with("refs/") {
+        format!("refs/heads/{}", ref_name)
+    } else {
+        ref_name.to_string()
+    };
+
+    let ref_path = find_repo_root()?.join(".nag").join(ref_name_full);
+
+    Ok(ref_path)
 }
 
 pub fn set_head_ref(branch: &str) -> std::io::Result<()> {
