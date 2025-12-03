@@ -13,6 +13,7 @@ use crate::commands::{
         delete_tag,
         tag,
     },
+    resolve::resolve,
 };
 use crate::core::io::read_file;
 use crate::core::hash::hash;
@@ -66,6 +67,9 @@ enum Command {
         #[arg(short = 'd', long = "delete")]
         delete: bool,
     },
+    Resolve {
+        file_path: String,
+    },
 }
 
 pub fn run_command() -> std::io::Result<()> {
@@ -115,6 +119,9 @@ pub fn run_command() -> std::io::Result<()> {
                 return Ok(());
             }
             tag(tag_name, commit_name, message)?;
+        },
+        Cli { command: Some(Command::Resolve { file_path })} => {
+            resolve(&file_path)?;
         },
         Cli { command: None } => {}
     }
