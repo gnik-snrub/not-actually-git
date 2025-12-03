@@ -8,3 +8,4 @@ pub mod restore;
 pub mod merge;
 pub mod tag;
 pub mod resolve;
+pub mod remote;
