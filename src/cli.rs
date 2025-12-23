@@ -14,6 +14,11 @@ use crate::commands::{
         tag,
     },
     resolve::resolve,
+    remote::{
+        add_remote,
+        remove_remote,
+        fetch_remote,
+    }
 };
 use crate::core::io::read_file;
 use crate::core::hash::hash;
@@ -70,6 +75,11 @@ enum Command {
     Resolve {
         file_path: String,
     },
+    Remote {
+        action: String,
+        name: Option<String>,
+        path: Option<String>,
+    },
 }
 
 pub fn run_command() -> std::io::Result<()> {
@@ -122,6 +132,23 @@ pub fn run_command() -> std::io::Result<()> {
         },
         Cli { command: Some(Command::Resolve { file_path })} => {
             resolve(&file_path)?;
+        },
+        Cli { command: Some(Command::Remote { action, name, path })} => {
+            match action.as_str() {
+                "add" => {
+                    add_remote(name.unwrap(), path.unwrap())?;
+                },
+                "remove" => {
+                    let name = name.unwrap();
+                    remove_remote(name)?;
+                }
+                "fetch" => {
+                    fetch_remote(name.unwrap())?;
+                }
+                _ => {
+                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid remote action"));
+                }
+            }
         },
         Cli { command: None } => {}
     }
